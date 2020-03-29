@@ -1,11 +1,15 @@
 <template>
 	<div>
-		<div>Stół: {{ this.$route.params.id }}</div>
+		<div>Stół: {{ $route.params.id }}</div>
+		<div>Gracz: {{ $route.params.player }}</div>
 		<div>
 			<p>Players:</p>
-			<div v-for="(player, index) in players" :key="index">{{ player }}</div>
+			<div v-for="(player, index) in players" :key="index">{{ player.player }}</div>
 		</div>
-        <button @click="startGame">Zacznij grę</button>
+		<div v-if="$route.params.admin">
+			<button @click="startGame">Zacznij grę</button>
+			<button @click="startNewGame">Nowa gra</button>
+		</div>
 	</div>
 </template>
 
@@ -15,8 +19,8 @@
 		name: "Table",
 		data() {
 			return {
-                players: {},
-                cards: [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 'kameleon']
+				players: {},
+				oldPlayers: {}
 			};
 		},
 		components: {},
@@ -26,15 +30,28 @@
 				.collection("gametable")
 				.doc(this.$route.params.id)
 				.onSnapshot(doc => {
-                    this.players = doc.data().players
+					this.players = doc.data().players;
 				});
 		},
 		computed: {},
 		methods: {
-            startGame(){
-
-            }
-        }
+			async startGame() {
+				this.oldPlayers = JSON.parse(JSON.stringify(this.players));
+				const kameleon = Math.floor(Math.random() * Object.keys(this.players).length);
+				let fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.id);
+				this.players[kameleon].card = true;
+				fire.update({
+					players: { ...this.players }
+				});
+			},
+			startNewGame() {
+				this.players = JSON.parse(JSON.stringify(this.oldPlayers));
+				this.startGame();
+			}
+		}
 	};
 </script>
 

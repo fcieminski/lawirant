@@ -48,12 +48,20 @@
 					firebase
 						.firestore()
 						.collection("gametable")
-						.doc(this.tableName)
+						.doc(this.tableName.toUpperCase())
 						.set({
-							players: this.name
+							players: [
+								{
+									player: this.name,
+									card: false
+								}
+							]
 						})
 						.then(() => {
-							this.$router.push({ name: "table", params: { id: this.tableName } });
+							this.$router.push({
+								name: "table",
+								params: { id: this.tableName.toUpperCase(), player: this.name, admin: true }
+							});
 						});
 				}
 			},
@@ -62,12 +70,15 @@
 					firebase
 						.firestore()
 						.collection("gametable")
-						.doc(this.exitingTable)
+						.doc(this.exitingTable.toUpperCase())
 						.update({
-							players: firebase.firestore.FieldValue.arrayUnion(this.name)
+							players: firebase.firestore.FieldValue.arrayUnion({ player: this.name, card: false })
 						})
 						.then(() => {
-							this.$router.push({ name: "table", params: { id: this.exitingTable } });
+							this.$router.push({
+								name: "table",
+								params: { id: this.exitingTable.toUpperCase(), player: this.name }
+							});
 						})
 						.catch(() => {
 							this.error = "Stół nie istnieje!";
