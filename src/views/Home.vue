@@ -6,7 +6,11 @@
 		<div v-if="createTable">
 			<input placeholder="nazwa nowego stołu" type="text" v-model="tableName" />
 			<button v-show="tableName" @click="createNewTable">Utwórz stół</button>
-			<button>Dołącz do stołu</button>
+			<input placeholder="nazwa istniejącego stołu" type="text" v-model="exitingTable" />
+			<button @click="joinExistingTable" v-show="exitingTable">Dołącz do stołu</button>
+		</div>
+		<div v-if="error">
+			{{ error }}
 		</div>
 	</div>
 </template>
@@ -20,7 +24,9 @@
 			return {
 				name: "",
 				createTable: false,
-				tableName: ""
+				tableName: "",
+				exitingTable: "",
+				error: ""
 			};
 		},
 		methods: {
@@ -42,9 +48,29 @@
 					firebase
 						.firestore()
 						.collection("gametable")
-						.doc("firstTable")
+						.doc(this.tableName)
+						.set({
+							players: this.name
+						})
+						.then(() => {
+							this.$router.push({ name: "table", params: { id: this.tableName } });
+						});
+				}
+			},
+			joinExistingTable() {
+				if (this.exitingTable) {
+					firebase
+						.firestore()
+						.collection("gametable")
+						.doc(this.exitingTable)
 						.update({
 							players: firebase.firestore.FieldValue.arrayUnion(this.name)
+						})
+						.then(() => {
+							this.$router.push({ name: "table", params: { id: this.exitingTable } });
+						})
+						.catch(() => {
+							this.error = "Stół nie istnieje!";
 						});
 				}
 			}
