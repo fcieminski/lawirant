@@ -39,6 +39,9 @@
 			<div v-if="admin && voted">
 				<button @click="endGame">Zakończ grę</button>
 			</div>
+			<div v-if="game.typedPlayer.length !== 0">
+				{{ isTypedRight }}
+			</div>
 		</div>
 	</div>
 </template>
@@ -51,7 +54,8 @@
 			return {
 				oldPlayers: {},
 				game: {},
-				voted: false
+				voted: false,
+				oldVoted: []
 			};
 		},
 		components: {},
@@ -73,6 +77,13 @@
 			},
 			admin() {
 				return this.game.admin === this.$route.params.playerId;
+			},
+			isTypedRight() {
+				let typed = this.game.typedPlayer && this.game.typedPlayer[0];
+				if (typed) {
+					let player = Object.values(this.game.players).find(player => player.id === typed.id);
+					return player.card ? `Dobrze! lawirantem jest: ${player.player}` : `Buuu... lawirant jest bezpieczny!`;
+				}
 			}
 		},
 		methods: {
@@ -84,11 +95,9 @@
 				let data = await fire.get().then(doc => {
 					return doc.data().game;
 				});
-                let maxVotes = data.votedPlayers.reduce((max, player) => max.count > player.count ? max : player);
+				let maxVotes = data.votedPlayers.reduce((max, player) => (max.count > player.count ? max : player));
 				fire.update({
-					"game.typedPlayer": [
-                        maxVotes
-                    ]
+					"game.typedPlayer": [maxVotes]
 				});
 			},
 			voteForPlayer(player) {
@@ -97,13 +106,20 @@
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
 				fire.get().then(doc => {
+					let players = doc.data().game.players;
+					let votedPlayers = doc.data().game.votedPlayers;
+					let index = votedPlayers.findIndex(currentPlayer => currentPlayer.id === player.id);
+
 					if (!this.voted) {
-						let players = doc.data().game.votedPlayers;
-						let index = players.findIndex(currentPlayer => currentPlayer.id === player.id);
-						players[index].count++;
+						votedPlayers[index].count++;
 						fire.update({
-							"game.votedPlayers": players
+							"game.votedPlayers": votedPlayers
 						});
+						if (players[index].card) {
+							
+						} else { 
+							
+						}
 					}
 					this.voted = true;
 				});
@@ -130,6 +146,7 @@
 			},
 			async startGame() {
 				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
+				this.oldVoted = JSON.parse(JSON.stringify(this.game.votedPlayers));
 				const lawirant = Math.floor(Math.random() * Object.keys(this.game.players).length);
 				let fire = await firebase
 					.firestore()
@@ -139,7 +156,7 @@
 					this.game.players[lawirant].card = true;
 					console.log(this.game.players[lawirant], this.game.players);
 					fire.update({
-						"game.players": { ...this.game.players },
+						"game.players": this.game.players,
 						"game.started": true
 					});
 				} catch (e) {
@@ -153,7 +170,31 @@
 					.doc(this.$route.params.tableId);
 				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
 				fire.update({
-					"game.started": false
+					"game.started": false,
+					"game.k6": 0,
+					"game.k9": 0,
+					"game.rolled": false,
+					"game.showPlayersToVote": false,
+					"game.votedPlayers": this.oldVoted,
+					"game.points": [],
+					"game.typedPlayer": {}
+				});
+				this.startGame();
+			},
+			async startNextRound() {
+				let fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
+				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
+				fire.update({
+					"game.started": false,
+					"game.k6": 0,
+					"game.k9": 0,
+					"game.rolled": false,
+					"game.showPlayersToVote": false,
+					"game.votedPlayers": this.oldVoted,
+					"game.typedPlayer": {}
 				});
 				this.startGame();
 			}
