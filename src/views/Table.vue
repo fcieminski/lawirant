@@ -1,14 +1,17 @@
 <template>
 	<div>
-		<div>Stół: {{ $route.params.id }}</div>
-		<div>Gracz: {{ $route.params.player }}</div>
+		<div>Stół: {{ $route.params.tableId }}</div>
+		<div>Gracz: {{ currentPlayer && currentPlayer.player }}</div>
 		<div>
-			<p>Players:</p>
+			<p>Gracze:</p>
 			<div v-for="(player, index) in players" :key="index">{{ player.player }}</div>
 		</div>
-		<div v-if="$route.params.admin">
-			<button @click="startGame">Zacznij grę</button>
-			<button @click="startNewGame">Nowa gra</button>
+		<div>
+			<button v-if="$route.params.admin && !gameStarted" @click="startGame">Zacznij grę</button>
+			<button v-if="$route.params.admin && gameStarted" @click="startNewGame">Nowa gra</button>
+		</div>
+		<div v-if="gameStarted">
+			{{ currentPlayer.card ? "JESTEŚ LAWIRANTEM!" : "NORMALNA KARTA" }}
 		</div>
 	</div>
 </template>
@@ -20,7 +23,9 @@
 		data() {
 			return {
 				players: {},
-				oldPlayers: {}
+				oldPlayers: {},
+				gameStarted: false,
+				currentPlayer: null
 			};
 		},
 		components: {},
@@ -28,9 +33,13 @@
 			firebase
 				.firestore()
 				.collection("gametable")
-				.doc(this.$route.params.id)
+				.doc(this.$route.params.tableId)
 				.onSnapshot(doc => {
-					this.players = doc.data().players;
+					this.players = Object.values(doc.data().players);
+					this.currentPlayer = Object.values(doc.data().players).find(
+						player => player.id === this.$route.params.playerId
+					);
+					this.gameStarted = doc.data().started;
 				});
 		},
 		computed: {},
@@ -41,14 +50,23 @@
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
-					.doc(this.$route.params.id);
+					.doc(this.$route.params.tableId);
 				this.players[lawirant].card = true;
 				fire.update({
-					players: { ...this.players }
+					players: { ...this.players },
+					started: true
 				});
+				this.gameStarted = true;
 			},
-			startNewGame() {
+			async startNewGame() {
+				let fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
 				this.players = JSON.parse(JSON.stringify(this.oldPlayers));
+				fire.update({
+					started: false
+				});
 				this.startGame();
 			}
 		}

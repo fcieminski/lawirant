@@ -26,17 +26,24 @@
 				createTable: false,
 				tableName: "",
 				exitingTable: "",
-				error: ""
+				error: "",
+				id: null
 			};
 		},
 		methods: {
 			startGame() {
 				if (this.name) {
+					this.id =
+						"_" +
+						Math.random()
+							.toString(36)
+							.substring(2, 9);
 					firebase
 						.firestore()
 						.collection("players/")
 						.add({
-							name: this.name
+							name: this.name,
+							id: this.id
 						});
 					this.createTable = true;
 				} else {
@@ -53,14 +60,16 @@
 							players: [
 								{
 									player: this.name,
-									card: false
+                                    card: false,
+                                    id: this.id
 								}
-							]
+							],
+							started: false
 						})
 						.then(() => {
 							this.$router.push({
 								name: "table",
-								params: { id: this.tableName.toUpperCase(), player: this.name, admin: true }
+								params: { tableId: this.tableName.toUpperCase(), playerId: this.id, admin: true }
 							});
 						});
 				}
@@ -72,12 +81,17 @@
 						.collection("gametable")
 						.doc(this.exitingTable.toUpperCase())
 						.update({
-							players: firebase.firestore.FieldValue.arrayUnion({ player: this.name, card: false })
+							players: firebase.firestore.FieldValue.arrayUnion({
+								player: this.name,
+								id: this.id,
+								card: false
+							}),
+							started: false
 						})
 						.then(() => {
 							this.$router.push({
 								name: "table",
-								params: { id: this.exitingTable.toUpperCase(), player: this.name }
+								params: { tableId: this.exitingTable.toUpperCase(), playerId: this.id }
 							});
 						})
 						.catch(() => {
