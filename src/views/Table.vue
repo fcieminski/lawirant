@@ -1,17 +1,36 @@
 <template>
-	<div>
+	<div v-if="game.players">
 		<div>Stół: {{ $route.params.tableId }}</div>
 		<div>Gracz: {{ currentPlayer && currentPlayer.player }}</div>
 		<div>
 			<p>Gracze:</p>
-			<div v-for="(player, index) in players" :key="index">{{ player.player }}</div>
+			<div v-for="(player, index) in game.players" :key="index">{{ player.player }}</div>
 		</div>
 		<div>
-			<button v-if="admin && !gameStarted" @click="startGame">Zacznij grę</button>
-			<button v-if="admin && gameStarted" @click="startNewGame">Nowa gra</button>
+			<button v-if="admin && !game.started" @click="startGame">Zacznij grę</button>
+			<button v-if="admin && game.started" @click="startNewGame">Nowa gra</button>
 		</div>
-		<div v-if="gameStarted">
-			{{ currentPlayer.card ? "JESTEŚ LAWIRANTEM!" : "NORMALNA KARTA" }}
+		<div v-if="game.started">
+			<div>
+				{{ currentPlayer.card ? "JESTEŚ LAWIRANTEM!" : "NORMALNA KARTA" }}
+			</div>
+			<div class="dice__container" @click="game.rolled ? null : rollDice()">
+				<div class="dice__box">
+					<div class="dice dice--k6">{{ game.k6 }}</div>
+					<div class="dice dice--k9">
+						<p>{{ game.k9 }}</p>
+					</div>
+				</div>
+			</div>
+			<div v-if="game.rolled">
+				KARTA DO GRYYYYYYYYYYYYYYYY
+				<button @click="endRound">Zakończ rundę</button>
+			</div>
+			<div class="users__container" v-if="game.showPlayersToVote">
+				<div v-for="(player, index) in showOtherPlayers" :key="index" class="player__icon">
+					{{ player.player }}
+				</div>
+			</div>
 		</div>
 	</div>
 </template>
@@ -22,11 +41,8 @@
 		name: "Table",
 		data() {
 			return {
-				players: {},
 				oldPlayers: {},
-				gameStarted: false,
-				currentPlayer: null,
-				admin: false
+				game: {}
 			};
 		},
 		components: {},
@@ -36,41 +52,67 @@
 				.collection("gametable")
 				.doc(this.$route.params.tableId)
 				.onSnapshot(doc => {
-					this.players = Object.values(doc.data().players);
-					this.currentPlayer = Object.values(doc.data().players).find(
-						player => player.id === this.$route.params.playerId
-					);
-					this.gameStarted = doc.data().started;
-					this.admin = doc.data().admin;
+					this.game = doc.data().game;
 				});
 		},
+		computed: {
+			showOtherPlayers() {
+				return Object.values(this.game.players).filter(player => player.id !== this.$route.params.playerId);
+			},
+			currentPlayer() {
+				return Object.values(this.game.players).find(player => player.id === this.$route.params.playerId);
+            },
+            admin(){
+                return this.game.admin === this.$route.params.playerId
+            }
+		},
 		methods: {
+			rollDice() {
+				firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId)
+					.update({
+						"game.k6": Math.floor(1 + Math.random() * 6),
+						"game.k9": Math.floor(1 + Math.random() * 9),
+						"game.rolled": true
+					});
+			},
+			endRound() {
+				firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId)
+					.update({
+						"game.showPlayersToVote": true
+					});
+			},
 			async startGame() {
-				this.oldPlayers = JSON.parse(JSON.stringify(this.players));
-				const lawirant = Math.floor(Math.random() * Object.keys(this.players).length);
+				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
+				const lawirant = Math.floor(Math.random() * Object.keys(this.game.players).length);
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
 				try {
-					this.players[lawirant].card = true;
+					this.game.players[lawirant].card = true;
+					console.log(this.game.players[lawirant], this.game.players);
 					fire.update({
-						players: { ...this.players },
-						started: true
+						"game.players": { ...this.game.players },
+						"game.started": true
 					});
 				} catch (e) {
 					console.error(e);
 				}
-				this.gameStarted = true;
 			},
 			async startNewGame() {
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
-				this.players = JSON.parse(JSON.stringify(this.oldPlayers));
+				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
 				fire.update({
-					started: false
+					"game.started": false
 				});
 				this.startGame();
 			}
@@ -88,4 +130,66 @@
 </script>
 
 <style lang='scss' scoped>
+	::selection {
+		color: none;
+		background: none;
+	}
+    .users__container{
+        display: flex;
+justify-content: center;
+align-items: center;
+.player__icon{
+    width: 50px;
+height: 50px;
+border: 2px solid black;
+border-radius: 100%;
+display: flex;
+justify-content: center;
+align-items: center;
+margin: 10px;
+}
+    }
+
+	.dice__container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		.dice__box {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			width: 200px;
+			border: 1px solid black;
+			border-radius: 4px;
+			margin-top: 20px;
+			cursor: pointer;
+			.dice {
+				width: 50px;
+				height: 50px;
+				margin: 20px;
+				border: 2px solid black;
+				border-radius: 10px;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				&.dice--k6 {
+					font-size: 2rem;
+				}
+				&.dice--k9 {
+					color: white;
+					font-size: 2rem;
+					position: relative;
+					width: 0;
+					height: 0;
+					border-left: 30px solid transparent;
+					border-right: 30px solid transparent;
+					border-bottom: 50px solid black;
+					p {
+						position: absolute;
+						top: -20px;
+					}
+				}
+			}
+		}
+	}
 </style>

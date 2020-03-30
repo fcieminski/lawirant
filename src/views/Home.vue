@@ -57,15 +57,24 @@
 						.collection("gametable")
 						.doc(this.tableName.toUpperCase())
 						.set({
-							players: [
-								{
-									player: this.name,
-                                    card: false,
-                                    id: this.id
-								}
-							],
-                            started: false,
-                            admin: this.id,
+							game: {
+								players: [
+									{
+										player: this.name,
+										card: false,
+										id: this.id
+									}
+								],
+								started: false,
+								admin: this.id,
+								k6: 0,
+								k9: 0,
+								rolled: false,
+								showPlayersToVote: false,
+								nextRollFor: this.id,
+								votedPlayers: [],
+								points: []
+							}
 						})
 						.then(() => {
 							this.$router.push({
@@ -82,12 +91,12 @@
 						.collection("gametable")
 						.doc(this.exitingTable.toUpperCase())
 						.update({
-							players: firebase.firestore.FieldValue.arrayUnion({
+							"game.players": firebase.firestore.FieldValue.arrayUnion({
 								player: this.name,
 								id: this.id,
 								card: false
 							}),
-							started: false
+							"game.started": false
 						})
 						.then(() => {
 							this.$router.push({
