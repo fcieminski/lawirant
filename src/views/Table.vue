@@ -37,12 +37,12 @@
 		methods: {
 			async startGame() {
 				this.oldPlayers = JSON.parse(JSON.stringify(this.players));
-				const kameleon = Math.floor(Math.random() * Object.keys(this.players).length);
+				const lawirant = Math.floor(Math.random() * Object.keys(this.players).length);
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.id);
-				this.players[kameleon].card = true;
+				this.players[lawirant].card = true;
 				fire.update({
 					players: { ...this.players }
 				});
