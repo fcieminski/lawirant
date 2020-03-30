@@ -7,8 +7,8 @@
 			<div v-for="(player, index) in players" :key="index">{{ player.player }}</div>
 		</div>
 		<div>
-			<button v-if="$route.params.admin && !gameStarted" @click="startGame">Zacznij grę</button>
-			<button v-if="$route.params.admin && gameStarted" @click="startNewGame">Nowa gra</button>
+			<button v-if="admin && !gameStarted" @click="startGame">Zacznij grę</button>
+			<button v-if="admin && gameStarted" @click="startNewGame">Nowa gra</button>
 		</div>
 		<div v-if="gameStarted">
 			{{ currentPlayer.card ? "JESTEŚ LAWIRANTEM!" : "NORMALNA KARTA" }}
@@ -25,7 +25,8 @@
 				players: {},
 				oldPlayers: {},
 				gameStarted: false,
-				currentPlayer: null
+				currentPlayer: null,
+				admin: false
 			};
 		},
 		components: {},
@@ -40,9 +41,9 @@
 						player => player.id === this.$route.params.playerId
 					);
 					this.gameStarted = doc.data().started;
+					this.admin = doc.data().admin;
 				});
 		},
-		computed: {},
 		methods: {
 			async startGame() {
 				this.oldPlayers = JSON.parse(JSON.stringify(this.players));
@@ -51,11 +52,15 @@
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
-				this.players[lawirant].card = true;
-				fire.update({
-					players: { ...this.players },
-					started: true
-				});
+				try {
+					this.players[lawirant].card = true;
+					fire.update({
+						players: { ...this.players },
+						started: true
+					});
+				} catch (e) {
+					console.error(e);
+				}
 				this.gameStarted = true;
 			},
 			async startNewGame() {
@@ -68,6 +73,15 @@
 					started: false
 				});
 				this.startGame();
+			}
+		},
+		beforeDestroy() {
+			if (this.admin) {
+				firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId)
+					.delete();
 			}
 		}
 	};

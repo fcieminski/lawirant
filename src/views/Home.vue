@@ -64,12 +64,13 @@
                                     id: this.id
 								}
 							],
-							started: false
+                            started: false,
+                            admin: this.id,
 						})
 						.then(() => {
 							this.$router.push({
 								name: "table",
-								params: { tableId: this.tableName.toUpperCase(), playerId: this.id, admin: true }
+								params: { tableId: this.tableName.toUpperCase(), playerId: this.id }
 							});
 						});
 				}
