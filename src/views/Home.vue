@@ -72,8 +72,15 @@
 								rolled: false,
 								showPlayersToVote: false,
 								nextRollFor: this.id,
-								votedPlayers: [],
-								points: []
+								votedPlayers: [
+									{
+										player: this.name,
+										id: this.id,
+										count: 0
+									}
+								],
+                                points: [],
+                                typedPlayer: {}
 							}
 						})
 						.then(() => {
@@ -95,6 +102,11 @@
 								player: this.name,
 								id: this.id,
 								card: false
+							}),
+							"game.votedPlayers": firebase.firestore.FieldValue.arrayUnion({
+								player: this.name,
+								id: this.id,
+								count: 0
 							}),
 							"game.started": false
 						})

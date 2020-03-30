@@ -27,9 +27,17 @@
 				<button @click="endRound">Zakończ rundę</button>
 			</div>
 			<div class="users__container" v-if="game.showPlayersToVote">
-				<div v-for="(player, index) in showOtherPlayers" :key="index" class="player__icon">
+				<div
+					@click="voteForPlayer(player)"
+					v-for="(player, index) in showOtherPlayers"
+					:key="index"
+					class="player__icon"
+				>
 					{{ player.player }}
 				</div>
+			</div>
+			<div v-if="admin && voted">
+				<button @click="endGame">Zakończ grę</button>
 			</div>
 		</div>
 	</div>
@@ -42,7 +50,8 @@
 		data() {
 			return {
 				oldPlayers: {},
-				game: {}
+				game: {},
+				voted: false
 			};
 		},
 		components: {},
@@ -61,12 +70,44 @@
 			},
 			currentPlayer() {
 				return Object.values(this.game.players).find(player => player.id === this.$route.params.playerId);
-            },
-            admin(){
-                return this.game.admin === this.$route.params.playerId
-            }
+			},
+			admin() {
+				return this.game.admin === this.$route.params.playerId;
+			}
 		},
 		methods: {
+			async endGame() {
+				let fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
+				let data = await fire.get().then(doc => {
+					return doc.data().game;
+				});
+                let maxVotes = data.votedPlayers.reduce((max, player) => max.count > player.count ? max : player);
+				fire.update({
+					"game.typedPlayer": [
+                        maxVotes
+                    ]
+				});
+			},
+			voteForPlayer(player) {
+				let fire = firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
+				fire.get().then(doc => {
+					if (!this.voted) {
+						let players = doc.data().game.votedPlayers;
+						let index = players.findIndex(currentPlayer => currentPlayer.id === player.id);
+						players[index].count++;
+						fire.update({
+							"game.votedPlayers": players
+						});
+					}
+					this.voted = true;
+				});
+			},
 			rollDice() {
 				firebase
 					.firestore()
@@ -134,21 +175,21 @@
 		color: none;
 		background: none;
 	}
-    .users__container{
-        display: flex;
-justify-content: center;
-align-items: center;
-.player__icon{
-    width: 50px;
-height: 50px;
-border: 2px solid black;
-border-radius: 100%;
-display: flex;
-justify-content: center;
-align-items: center;
-margin: 10px;
-}
-    }
+	.users__container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		.player__icon {
+			width: 50px;
+			height: 50px;
+			border: 2px solid black;
+			border-radius: 100%;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			margin: 10px;
+		}
+	}
 
 	.dice__container {
 		display: flex;
