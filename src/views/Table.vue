@@ -10,8 +10,8 @@
 			<button v-if="admin && !game.started" @click="startGame">Zacznij grę</button>
 			<button v-if="admin && game.started" @click="startNewGame">Nowa gra</button>
 		</div>
-		<div v-if="game.started">
-			<div>
+		<div class="game__box" v-if="game.started">
+			<div class="box__card">
 				{{ currentPlayer.card ? "JESTEŚ LAWIRANTEM!" : "NORMALNA KARTA" }}
 			</div>
 			<div class="dice__container" @click="game.rolled ? null : rollDice()">
@@ -22,11 +22,14 @@
 					</div>
 				</div>
 			</div>
-			<div v-if="game.rolled">
+			<div class="card__container" v-if="game.rolled">
+                <div class="card">
 				KARTA DO GRYYYYYYYYYYYYYYYY
-				<button @click="endRound">Zakończ rundę</button>
+                </div>
+				<button v-if="admin" @click="endRound">Zakończ rundę</button>
 			</div>
 			<div class="users__container" v-if="game.showPlayersToVote">
+                <div>Zagłosuj na gracza!</div>
 				<div
 					@click="voteForPlayer(player)"
 					v-for="(player, index) in showOtherPlayers"
@@ -39,10 +42,10 @@
 			<div v-if="admin && voted">
 				<button @click="endGame">Zakończ grę</button>
 			</div>
-			<div v-if="game.typedPlayer.length !== 0">
-				{{ isTypedRight }}
+			<div class="endgame__container" v-if="game.typedPlayer.length !== 0">
+				<div>{{ isTypedRight }}</div>
+			<button @click="startNextRound">Nowa runda!</button>
 			</div>
-			<button v-if="game.typedPlayer.length !== 0" @click="startNextRound">Nowa runda!</button>
 		</div>
 	</div>
 </template>
@@ -211,7 +214,42 @@
 		color: none;
 		background: none;
 	}
+
+    .game__box{
+        margin-top: 50px;
+        display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+        .box__card{
+border: 2px solid #004cff;
+padding: 20px;
+        }
+        .card__container{
+            display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+.card{
+    border: 2px solid #004cff;
+padding: 20px;
+margin-bottom: 20px;
+}
+        }
+        .endgame__container{
+            
+                
+            margin-top: 20px;
+            border: 5px solid #f00;
+margin-bottom: 10px;
+padding: 20px;
+            
+        }
+    }
+
 	.users__container {
+        flex-direction: column;
+margin-top: 20px;
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -231,12 +269,13 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
+        margin-bottom: 20px;
 		.dice__box {
 			display: flex;
 			justify-content: center;
 			align-items: center;
 			width: 200px;
-			border: 1px solid black;
+			border: 2px solid black;
 			border-radius: 4px;
 			margin-top: 20px;
 			cursor: pointer;
