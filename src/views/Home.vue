@@ -76,11 +76,11 @@
 									{
 										player: this.name,
 										id: this.id,
-										count: 0
+                                        count: 0,
 									}
 								],
                                 points: [],
-                                typedPlayer: {}
+                                typedPlayer: []
 							}
 						})
 						.then(() => {

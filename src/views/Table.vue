@@ -42,6 +42,7 @@
 			<div v-if="game.typedPlayer.length !== 0">
 				{{ isTypedRight }}
 			</div>
+			<button v-if="game.typedPlayer.length !== 0" @click="startNextRound">Nowa runda!</button>
 		</div>
 	</div>
 </template>
@@ -109,17 +110,11 @@
 					let players = doc.data().game.players;
 					let votedPlayers = doc.data().game.votedPlayers;
 					let index = votedPlayers.findIndex(currentPlayer => currentPlayer.id === player.id);
-
 					if (!this.voted) {
 						votedPlayers[index].count++;
 						fire.update({
 							"game.votedPlayers": votedPlayers
 						});
-						if (players[index].card) {
-							
-						} else { 
-							
-						}
 					}
 					this.voted = true;
 				});
@@ -145,6 +140,7 @@
 					});
 			},
 			async startGame() {
+				this.voted = false;
 				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
 				this.oldVoted = JSON.parse(JSON.stringify(this.game.votedPlayers));
 				const lawirant = Math.floor(Math.random() * Object.keys(this.game.players).length);
@@ -154,7 +150,6 @@
 					.doc(this.$route.params.tableId);
 				try {
 					this.game.players[lawirant].card = true;
-					console.log(this.game.players[lawirant], this.game.players);
 					fire.update({
 						"game.players": this.game.players,
 						"game.started": true
@@ -177,7 +172,7 @@
 					"game.showPlayersToVote": false,
 					"game.votedPlayers": this.oldVoted,
 					"game.points": [],
-					"game.typedPlayer": {}
+					"game.typedPlayer": []
 				});
 				this.startGame();
 			},
@@ -194,7 +189,7 @@
 					"game.rolled": false,
 					"game.showPlayersToVote": false,
 					"game.votedPlayers": this.oldVoted,
-					"game.typedPlayer": {}
+					"game.typedPlayer": []
 				});
 				this.startGame();
 			}
