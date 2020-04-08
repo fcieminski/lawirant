@@ -76,6 +76,10 @@
 				.doc(this.$route.params.tableId)
 				.onSnapshot(doc => {
 					this.game = doc.data().game;
+					const playersWithoutCurrent = this.game.players.filter(
+						player => player.id !== this.$route.params.playerId
+					);
+					this.$eventBus.$emit("players", playersWithoutCurrent);
 				});
 		},
 		computed: {
@@ -216,7 +220,7 @@
 				});
 				this.startGame();
 			}
-		},
+		}
 		// beforeDestroy() {
 		// 	if (this.admin) {
 		// 		firebase

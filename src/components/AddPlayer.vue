@@ -22,7 +22,7 @@
 			<div v-if="players">
 				<div v-for="player in players" :key="player.id" class="players__player">
 					<i class="material-icons-two-tone">face</i>
-					<span>{{ player.name }}</span>
+					<span>{{ player.player }}</span>
 				</div>
 			</div>
 		</div>
@@ -41,12 +41,29 @@
 			};
 		},
 		components: {},
+
+		watch: {
+			"$route.params": function() {
+				const id = this.$route.params.id || this.$route.params.playerId;
+				this.getPlayerData(id);
+			}
+		},
+
 		created() {
 			if (this.$route.params.id) {
+				this.getPlayerData(this.$route.params.id);
+			}
+			this.$eventBus.$on("players", payload => {
+				this.players = payload;
+			});
+		},
+		computed: {},
+		methods: {
+			getPlayerData(id) {
 				firebase
 					.firestore()
 					.collection("players/")
-					.doc(this.$route.params.id)
+					.doc(id)
 					.get()
 					.then(doc => {
 						if (doc.exists) {
@@ -58,13 +75,7 @@
 					.catch(e => {
 						console.warn(e);
 					});
-			}
-			this.$eventBus.$on("players", payload => {
-				this.players = payload;
-			});
-		},
-		computed: {},
-		methods: {
+			},
 			addNewPlayer() {
 				if (this.name) {
 					this.id =

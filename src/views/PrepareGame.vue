@@ -69,7 +69,7 @@
 					.get()
 					.then(doc => {
 						if (doc.exists) {
-							this.currentPlayer = doc.data();
+                            this.currentPlayer = doc.data();
 							this.createTable = true;
 						} else {
 							this.$router.go(-1);
