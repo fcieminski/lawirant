@@ -12,7 +12,8 @@
 		</div>
 		<div class="game__box" v-if="game.started">
 			<div class="box__card">
-				{{ currentPlayer.card ? "JESTEŚ LAWIRANTEM!" : "NORMALNA KARTA" }}
+                <img v-if="!currentPlayer.card" :src="`${publicPath}img/card${game.cardSet}.JPG`" alt="">
+                <span v-else>JESTEŚ LAWIRANTEM!</span>
 			</div>
 			<div class="dice__container" @click="game.rolled ? null : rollDice()">
 				<div class="dice__box">
@@ -23,13 +24,13 @@
 				</div>
 			</div>
 			<div class="card__container" v-if="game.rolled">
-                <div class="card">
-				KARTA DO GRYYYYYYYYYYYYYYYY
-                </div>
+				<div class="card">
+					<img :src="`${publicPath}img/${1+game.currentCard}.JPG`" alt="">
+				</div>
 				<button v-if="admin" @click="endRound">Zakończ rundę</button>
 			</div>
 			<div class="users__container" v-if="game.showPlayersToVote">
-                <div>Zagłosuj na gracza!</div>
+				<div>Zagłosuj na gracza!</div>
 				<div
 					@click="voteForPlayer(player)"
 					v-for="(player, index) in showOtherPlayers"
@@ -38,20 +39,24 @@
 				>
 					{{ player.player }}
 				</div>
+                <div v-if="voted">
+                    Zagłosowano!
+                </div>
 			</div>
 			<div v-if="admin && voted">
 				<button @click="endGame">Zakończ grę</button>
 			</div>
 			<div class="endgame__container" v-if="game.typedPlayer.length !== 0">
 				<div>{{ isTypedRight }}</div>
-			<button @click="startNextRound">Nowa runda!</button>
+				<button @click="startNextRound">Nowa runda!</button>
 			</div>
 		</div>
 	</div>
 </template>
 
 <script>
-	import firebase from "firebase";
+    import firebase from "firebase";
+
 	export default {
 		name: "Table",
 		data() {
@@ -59,7 +64,8 @@
 				oldPlayers: {},
 				game: {},
 				voted: false,
-				oldVoted: []
+                oldVoted: [],
+                    publicPath: process.env.BASE_URL,
 			};
 		},
 		components: {},
@@ -123,6 +129,14 @@
 				});
 			},
 			rollDice() {
+                const { cards, usedCards, currentCard } = this.game;
+                let cardToPlay = Math.floor(Math.random() * cards.length);
+                usedCards.forEach(card => {
+                    if(cardToPlay === card){
+                        cardToPlay = Math.floor(Math.random() * cards.length);
+                    }
+                });
+                usedCards.push(cardToPlay)
 				firebase
 					.firestore()
 					.collection("gametable")
@@ -130,7 +144,9 @@
 					.update({
 						"game.k6": Math.floor(1 + Math.random() * 6),
 						"game.k9": Math.floor(1 + Math.random() * 9),
-						"game.rolled": true
+                        "game.rolled": true,
+                        "game.currentCard": cardToPlay,
+                        "game.usedCards": usedCards,
 					});
 			},
 			endRound() {
@@ -146,7 +162,7 @@
 				this.voted = false;
 				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
 				this.oldVoted = JSON.parse(JSON.stringify(this.game.votedPlayers));
-				const lawirant = Math.floor(Math.random() * Object.keys(this.game.players).length);
+                const lawirant = Math.floor(Math.random() * this.game.players.length);
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
@@ -215,41 +231,44 @@
 		background: none;
 	}
 
-    .game__box{
-        margin-top: 50px;
-        display: flex;
-flex-direction: column;
-justify-content: center;
-align-items: center;
-        .box__card{
-border: 2px solid #004cff;
-padding: 20px;
-        }
-        .card__container{
-            display: flex;
-flex-direction: column;
-justify-content: center;
-align-items: center;
-.card{
-    border: 2px solid #004cff;
-padding: 20px;
-margin-bottom: 20px;
-}
-        }
-        .endgame__container{
-            
-                
-            margin-top: 20px;
-            border: 5px solid #f00;
-margin-bottom: 10px;
-padding: 20px;
-            
-        }
-    }
+	.game__box {
+		margin-top: 50px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		.box__card {
+			border: 2px solid #004cff;
+			padding: 20px;
+            img{
+                width: 500px;
+            }
+		}
+		.card__container {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			.card {
+				border: 2px solid #004cff;
+				padding: 20px;
+				margin-bottom: 20px;
+                img{
+                    width: 500px;
+                }
+			}
+		}
+		.endgame__container {
+			margin-top: 20px;
+			border: 5px solid #f00;
+			margin-bottom: 10px;
+			padding: 20px;
+		}
+	}
 
 	.users__container {
-        flex-direction: column;
-margin-top: 20px;
+        flex-direction: row;
+		margin-top: 20px;
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -269,7 +288,7 @@ margin-top: 20px;
 		display: flex;
 		justify-content: center;
 		align-items: center;
-        margin-bottom: 20px;
+		margin-bottom: 20px;
 		.dice__box {
 			display: flex;
 			justify-content: center;

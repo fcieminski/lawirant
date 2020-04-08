@@ -1,16 +1,19 @@
 <template>
-	<div class="home">
-		<input type="text" v-model="name" />
-		<button @click="startGame">Ok</button>
-
-		<div v-if="createTable">
-			<input placeholder="nazwa nowego stołu" type="text" v-model="tableName" />
-			<button v-show="tableName" @click="createNewTable">Utwórz stół</button>
-			<input placeholder="nazwa istniejącego stołu" type="text" v-model="exitingTable" />
-			<button @click="joinExistingTable" v-show="exitingTable">Dołącz do stołu</button>
+	<div class="start">
+		<div class="start__sidebar-left">
+			<input type="text" v-model="name" />
 		</div>
-		<div v-if="error">
-			{{ error }}
+		<div class="start__sidebar-right">
+			<button @click="startGame">Ok</button>
+			<div v-if="createTable">
+				<input placeholder="nazwa nowego stołu" type="text" v-model="tableName" />
+				<button v-show="tableName" @click="createNewTable">Utwórz stół</button>
+				<input placeholder="nazwa istniejącego stołu" type="text" v-model="existingTable" />
+				<button @click="joinExistingTable" v-show="existingTable">Dołącz do stołu</button>
+			</div>
+			<div v-if="error">
+				{{ error }}
+			</div>
 		</div>
 	</div>
 </template>
@@ -25,7 +28,7 @@
 				name: "",
 				createTable: false,
 				tableName: "",
-				exitingTable: "",
+				existingTable: "",
 				error: "",
 				id: null
 			};
@@ -52,9 +55,11 @@
 			},
 			createNewTable() {
 				if (this.tableName) {
+					let arr = Array.from({ length: 39 }).map((ele, index) => index);
+					console.log(arr, this.tableName);
 					firebase
 						.firestore()
-						.collection("gametable")
+						.collection("gametable/")
 						.doc(this.tableName.toUpperCase())
 						.set({
 							game: {
@@ -76,11 +81,15 @@
 									{
 										player: this.name,
 										id: this.id,
-                                        count: 0,
+										count: 0
 									}
 								],
-                                points: [],
-                                typedPlayer: []
+								points: [],
+								typedPlayer: [],
+								cardSet: 1,
+								cards: arr,
+								usedCards: [],
+								currentCard: 0
 							}
 						})
 						.then(() => {
@@ -92,11 +101,11 @@
 				}
 			},
 			joinExistingTable() {
-				if (this.exitingTable) {
+				if (this.existingTable) {
 					firebase
 						.firestore()
 						.collection("gametable")
-						.doc(this.exitingTable.toUpperCase())
+						.doc(this.existingTable.toUpperCase())
 						.update({
 							"game.players": firebase.firestore.FieldValue.arrayUnion({
 								player: this.name,
@@ -113,7 +122,7 @@
 						.then(() => {
 							this.$router.push({
 								name: "table",
-								params: { tableId: this.exitingTable.toUpperCase(), playerId: this.id }
+								params: { tableId: this.existingTable.toUpperCase(), playerId: this.id }
 							});
 						})
 						.catch(() => {
@@ -124,3 +133,28 @@
 		}
 	};
 </script>
+
+<style lang="scss">
+	.background {
+		background: linear-gradient(
+			90deg,
+			rgba(0, 153, 4, 1) 8%,
+			rgba(234, 239, 14, 1) 42%,
+			rgba(234, 239, 14, 1) 68%,
+			rgba(0, 212, 255, 1) 100%
+		);
+	}
+
+	.start {
+		display: flex;
+		height: 100%;
+		.start__sidebar-left {
+			background: $background;
+			border: 2px solid white;
+			flex: 0 0 30%;
+        }
+        .start__sidebar-right{
+	flex: 0 0 70%;
+        }
+	}
+</style>
