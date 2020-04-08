@@ -42,6 +42,23 @@
 		},
 		components: {},
 		created() {
+			if (this.$route.params.id) {
+				firebase
+					.firestore()
+					.collection("players/")
+					.doc(this.$route.params.id)
+					.get()
+					.then(doc => {
+						if (doc.exists) {
+							this.newPlayer = doc.data();
+						} else {
+							this.$router.push("/");
+						}
+					})
+					.catch(e => {
+						console.warn(e);
+					});
+			}
 			this.$eventBus.$on("players", payload => {
 				this.players = payload;
 			});
@@ -62,18 +79,25 @@
 					firebase
 						.firestore()
 						.collection("players/")
-						.add(player)
+						.doc(player.id)
+						.set(player)
 						.then(() => {
-							this.$eventBus.$emit("startGame");
 							this.newPlayer = player;
 							this.name = "";
+							this.$router.push({
+								name: "prepare-game",
+								params: { name: this.newPlayer.name, id: this.newPlayer.id }
+							});
+						})
+						.catch(e => {
+							console.warn(e);
 						});
 				}
 			}
-        },
-        destroyed(){
-            	this.$eventBus.$off()
-        }
+		},
+		destroyed() {
+			this.$eventBus.$off();
+		}
 	};
 </script>
 

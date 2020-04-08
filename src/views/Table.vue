@@ -115,18 +115,22 @@
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
-				fire.get().then(doc => {
-					let players = doc.data().game.players;
-					let votedPlayers = doc.data().game.votedPlayers;
-					let index = votedPlayers.findIndex(currentPlayer => currentPlayer.id === player.id);
-					if (!this.voted) {
-						votedPlayers[index].count++;
-						fire.update({
-							"game.votedPlayers": votedPlayers
-						});
-					}
-					this.voted = true;
-				});
+				fire.get()
+					.then(doc => {
+						let players = doc.data().game.players;
+						let votedPlayers = doc.data().game.votedPlayers;
+						let index = votedPlayers.findIndex(currentPlayer => currentPlayer.id === player.id);
+						if (!this.voted) {
+							votedPlayers[index].count++;
+							fire.update({
+								"game.votedPlayers": votedPlayers
+							});
+						}
+						this.voted = true;
+					})
+					.catch(e => {
+						console.warn(e);
+					});
 			},
 			rollDice() {
 				const { cards, usedCards, currentCard } = this.game;
@@ -212,7 +216,7 @@
 				});
 				this.startGame();
 			}
-		}
+		},
 		// beforeDestroy() {
 		// 	if (this.admin) {
 		// 		firebase
