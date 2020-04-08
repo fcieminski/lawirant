@@ -56,3 +56,26 @@ $mainBlue: rgba(0, 212, 255, 1);
     color: white;
     font-size: 1.5rem;
 }
+
+.btn {
+    width: 200px;
+    height: 56px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: $mainBlue;
+    color: black;
+    text-transform: uppercase;
+    font-size: 1.3rem;
+    cursor: pointer;
+    box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+}
+
+.logo--big {
+    background: linear-gradient(90deg, rgba(0, 153, 4, 1) 8%, rgba(234, 239, 14, 1) 42%, rgba(234, 239, 14, 1) 68%, rgba(0, 212, 255, 1) 100%);
+    background-clip: text;
+    color: transparent;
+    overflow: hidden;
+    font-family: Voltaire;
+    font-size: 10rem;
+}

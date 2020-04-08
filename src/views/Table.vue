@@ -1,6 +1,32 @@
 <template>
-	<div v-if="game.players">
-		<div>Stół: {{ $route.params.tableId }}</div>
+	<div class="table" v-if="game.players">
+		<div class="table__header">
+			<div class="dice__container" @click="game.rolled ? null : rollDice()">
+				<div class="dice__box">
+					<div class="dice dice--k6">{{ game.k6 }}</div>
+					<div class="dice dice--k9">
+						<p>{{ game.k9 }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="table__top">
+			<div v-if="game.started">
+				<div class="card" v-if="!currentPlayer.card">
+					KARTA
+				</div>
+				<div v-else class="logo--big">LAWIRANT</div>
+			</div>
+		</div>
+		<div class="table__spacer"></div>
+		<div class="table__bottom">
+			<div v-if="game.started">
+				<div class="card">
+					PLANSZA
+				</div>
+			</div>
+		</div>
+		<!-- <div>Stół: {{ $route.params.tableId }}</div>
 		<div>Gracz: {{ currentPlayer && currentPlayer.player }}</div>
 		<div>
 			<p>Gracze:</p>
@@ -50,7 +76,7 @@
 				<div>{{ isTypedRight }}</div>
 				<button @click="startNextRound">Nowa runda!</button>
 			</div>
-		</div>
+		</div> -->
 	</div>
 </template>
 
@@ -70,17 +96,26 @@
 		},
 		components: {},
 		created() {
-			firebase
-				.firestore()
-				.collection("gametable")
-				.doc(this.$route.params.tableId)
-				.onSnapshot(doc => {
-					this.game = doc.data().game;
-					const playersWithoutCurrent = this.game.players.filter(
-						player => player.id !== this.$route.params.playerId
-					);
-					this.$eventBus.$emit("players", playersWithoutCurrent);
-				});
+			if (this.$route.params.tableId) {
+				firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId)
+					.onSnapshot(doc => {
+                        this.game = doc.data().game;
+                        
+						const playersWithoutCurrent = this.game.players.filter(
+							player => player.id !== this.$route.params.playerId
+						);
+                        const isAdmin = this.game.players.some(player => this.$route.params.playerId === player.id);
+                        
+						this.$eventBus.$emit("players", playersWithoutCurrent);
+						this.$eventBus.$emit("prepareToPlay", isAdmin);
+					});
+			}
+			this.$eventBus.$on("startGame", () => {
+				this.startGame();
+			});
 		},
 		computed: {
 			showOtherPlayers() {
@@ -151,7 +186,7 @@
 					.doc(this.$route.params.tableId)
 					.update({
 						"game.k6": Math.floor(1 + Math.random() * 6),
-						"game.k9": Math.floor(1 + Math.random() * 9),
+						"game.k9": Math.floor(1 + Math.random() * 8),
 						"game.rolled": true,
 						"game.currentCard": cardToPlay,
 						"game.usedCards": usedCards
@@ -239,19 +274,92 @@
 		background: none;
 	}
 
+	.table {
+		display: flex;
+		height: 100%;
+		width: 100%;
+		flex-direction: column;
+		.table__header {
+			flex: 1;
+			background: $mainBlue;
+			.dice__container {
+				margin-left: 20px;
+				margin-bottom: 20px;
+				.dice__box {
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+					width: 250px;
+					border-radius: 4px;
+					margin-top: 20px;
+					cursor: pointer;
+					.dice {
+						width: 70px;
+						height: 70px;
+						margin: 20px;
+						border: 2px solid $mainGreen;
+						border-radius: 10px;
+						display: flex;
+						justify-content: center;
+						align-items: center;
+						&.dice--k6 {
+							font-size: 2rem;
+							color: white;
+							background: $mainGreen;
+						}
+						&.dice--k9 {
+							color: white;
+							font-size: 2rem;
+							position: relative;
+							width: 0;
+							height: 0;
+							border-left: 40px solid transparent;
+							border-right: 40px solid transparent;
+							border-bottom: 70px solid $mainGreen;
+							p {
+								position: absolute;
+								top: -10px;
+							}
+						}
+					}
+				}
+			}
+		}
+		.table__top {
+			flex: 3;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			.card {
+				width: 500px;
+				border: 2px solid black;
+				height: 300px;
+			}
+		}
+		.table__spacer {
+			height: 5px;
+			background: $background;
+		}
+		.table__bottom {
+			flex: 3;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			.card {
+				width: 500px;
+				border: 2px solid black;
+				height: 300px;
+			}
+		}
+	}
+
 	.game__box {
 		margin-top: 50px;
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		.box__card {
-			border: 2px solid #004cff;
-			padding: 20px;
-			img {
-				width: 500px;
-			}
-		}
+
 		.card__container {
 			display: flex;
 			flex-direction: column;
@@ -289,50 +397,6 @@
 			justify-content: center;
 			align-items: center;
 			margin: 10px;
-		}
-	}
-
-	.dice__container {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		margin-bottom: 20px;
-		.dice__box {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			width: 200px;
-			border: 2px solid black;
-			border-radius: 4px;
-			margin-top: 20px;
-			cursor: pointer;
-			.dice {
-				width: 50px;
-				height: 50px;
-				margin: 20px;
-				border: 2px solid black;
-				border-radius: 10px;
-				display: flex;
-				justify-content: center;
-				align-items: center;
-				&.dice--k6 {
-					font-size: 2rem;
-				}
-				&.dice--k9 {
-					color: white;
-					font-size: 2rem;
-					position: relative;
-					width: 0;
-					height: 0;
-					border-left: 30px solid transparent;
-					border-right: 30px solid transparent;
-					border-bottom: 50px solid black;
-					p {
-						position: absolute;
-						top: -20px;
-					}
-				}
-			}
 		}
 	}
 </style>
