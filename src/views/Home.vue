@@ -1,15 +1,47 @@
 <template>
 	<div class="start">
-		<button @click="startGame">Ok</button>
-		<div v-if="createTable">
-			<input placeholder="nazwa nowego stołu" type="text" v-model="tableName" />
-			<button v-show="tableName" @click="createNewTable">Utwórz stół</button>
-			<input placeholder="nazwa istniejącego stołu" type="text" v-model="existingTable" />
-			<button @click="joinExistingTable" v-show="existingTable">Dołącz do stołu</button>
+		<div class="table" v-if="createTable">
+			<div>Utwórz stół</div>
+			<div class="pr">
+				<input
+					class="law__input law__input--border"
+					placeholder="nazwa nowego stołu"
+					type="text"
+					v-model="tableName"
+					@focus="existingTable = ''"
+				/>
+				<transition name="fade">
+					<i v-if="tableName" @click="createNewTable" class="material-icons-two-tone cp input--button"
+						>check_circle</i
+					>
+				</transition>
+			</div>
+			<div>lub dołącz do istniejącego</div>
+			<div class="pr">
+				<input
+					class="law__input law__input--border"
+					placeholder="nazwa istniejącego stołu"
+					type="text"
+					v-model="existingTable"
+					@focus="tableName = ''"
+				/>
+				<transition name="fade">
+					<i
+						@click="joinExistingTable"
+						v-show="existingTable"
+						class="material-icons-two-tone cp input--button"
+						>check_circle</i
+					>
+				</transition>
+			</div>
+			<transition name="fade">
+				<div class="error" v-if="error">
+					<i style="margin-right: 8px" class="material-icons-two-tone">error</i>
+					<div>{{ error }}</div>
+				</div>
+			</transition>
 		</div>
-		<div v-if="error">
-			{{ error }}
-		</div>
+		<div v-else class="logo--big">LAWIRANT</div>
 	</div>
 </template>
 
@@ -28,30 +60,15 @@
 				id: null
 			};
 		},
+		created() {
+			this.$eventBus.$on("startGame", () => {
+				this.createTable = true;
+			});
+		},
 		methods: {
-			startGame() {
-				if (this.name) {
-					this.id =
-						"_" +
-						Math.random()
-							.toString(36)
-							.substring(2, 9);
-					firebase
-						.firestore()
-						.collection("players/")
-						.add({
-							name: this.name,
-							id: this.id
-						});
-					this.createTable = true;
-				} else {
-					this.createTable = false;
-				}
-			},
 			createNewTable() {
 				if (this.tableName) {
 					let arr = Array.from({ length: 39 }).map((ele, index) => index);
-					console.log(arr, this.tableName);
 					firebase
 						.firestore()
 						.collection("gametable/")
@@ -120,12 +137,19 @@
 								params: { tableId: this.existingTable.toUpperCase(), playerId: this.id }
 							});
 						})
-						.catch(() => {
+						.catch(e => {
+							console.warn(e);
 							this.error = "Stół nie istnieje!";
+							setTimeout(() => {
+								this.error = "";
+							}, 3000);
 						});
 				}
 			}
-		}
+        },
+        destroyed(){
+            this.$$eventBus.$off();
+        }
 	};
 </script>
 
@@ -138,5 +162,43 @@
 			rgba(234, 239, 14, 1) 68%,
 			rgba(0, 212, 255, 1) 100%
 		);
+	}
+	.start {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 100%;
+		.logo--big {
+			background: linear-gradient(
+				90deg,
+				rgba(0, 153, 4, 1) 8%,
+				rgba(234, 239, 14, 1) 42%,
+				rgba(234, 239, 14, 1) 68%,
+				rgba(0, 212, 255, 1) 100%
+			);
+			background-clip: text;
+			color: transparent;
+			overflow: hidden;
+			font-family: Voltaire;
+			font-size: 10rem;
+		}
+		.table {
+			display: flex;
+			flex-direction: column;
+			text-align: left;
+			.input--button {
+				position: absolute;
+				right: 0px;
+				top: 10px;
+			}
+		}
+	}
+
+	.fade-enter-active,
+	.fade-leave-active {
+		transition: opacity 0.5s;
+	}
+	.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+		opacity: 0;
 	}
 </style>

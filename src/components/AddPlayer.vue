@@ -2,47 +2,108 @@
 	<div>
 		<div class="logo">LAWIRANT</div>
 		<div class="input__container">
-			<input placeholder="Twój nick" class="container__input" id="name" type="text" v-model="name" />
-			<i class="material-icons-two-tone cp">check_circle</i>
+			<input
+				@keyup.enter="addNewPlayer"
+				placeholder="Twój nick"
+				class="law__input"
+				id="name"
+				type="text"
+				v-model="name"
+				:disabled="newPlayer"
+			/>
+			<i @click="addNewPlayer" class="material-icons-two-tone cp">check_circle</i>
+		</div>
+		<div class="players" v-if="newPlayer">
+			<div>Gracze:</div>
+			<div class="players__player">
+				<i class="material-icons-two-tone">face</i>
+				<span>{{ this.newPlayer.name }}</span>
+			</div>
+			<div v-if="players">
+				<div v-for="player in players" :key="player.id" class="players__player">
+					<i class="material-icons-two-tone">face</i>
+					<span>{{ player.name }}</span>
+				</div>
+			</div>
 		</div>
 	</div>
 </template>
 
 <script>
+	import firebase from "firebase";
 	export default {
-		name: "AddPlater",
+		name: "AddPlayer",
 		data() {
 			return {
-				name: ""
+				name: "",
+				newPlayer: null,
+				players: {}
 			};
 		},
 		components: {},
-		created() {},
+		created() {
+			this.$eventBus.$on("players", payload => {
+				this.players = payload;
+			});
+		},
 		computed: {},
-		methods: {}
+		methods: {
+			addNewPlayer() {
+				if (this.name) {
+					this.id =
+						"_" +
+						Math.random()
+							.toString(36)
+							.substring(2, 9);
+					const player = {
+						name: this.name,
+						id: this.id
+					};
+					firebase
+						.firestore()
+						.collection("players/")
+						.add(player)
+						.then(() => {
+							this.$eventBus.$emit("startGame");
+							this.newPlayer = player;
+							this.name = "";
+						});
+				}
+			}
+        },
+        destroyed(){
+            	this.$eventBus.$off()
+        }
 	};
 </script>
 
 <style lang='scss' scoped>
 	.input__container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-		.container__input {
-			width: 250px;
-			height: 50px;
-			padding: 20px;
-			font-size: 1rem;
-			margin: 20px;
-			border: none;
-		}
+		display: flex;
+		justify-content: center;
+		align-items: center;
 	}
 	.logo {
 		font-family: Voltaire;
 		font-size: 5rem;
 		color: white;
 	}
-	.material-icons-two-tone {
-		font-size: 3rem;
+	.players {
+		color: white;
+		font-size: 1.5rem;
+		.players__player {
+			margin: 20px 20px 10px 20px;
+			display: flex;
+			justify-content: left;
+			align-items: center;
+			span {
+				max-width: 260px;
+				text-overflow: ellipsis;
+				overflow: hidden;
+			}
+			i {
+				margin-right: 20px;
+			}
+		}
 	}
 </style>

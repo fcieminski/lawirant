@@ -12,8 +12,8 @@
 		</div>
 		<div class="game__box" v-if="game.started">
 			<div class="box__card">
-                <img v-if="!currentPlayer.card" :src="`${publicPath}img/card${game.cardSet}.JPG`" alt="">
-                <span v-else>JESTEŚ LAWIRANTEM!</span>
+				<img v-if="!currentPlayer.card" :src="`${publicPath}img/card${game.cardSet}.JPG`" alt="" />
+				<span v-else>JESTEŚ LAWIRANTEM!</span>
 			</div>
 			<div class="dice__container" @click="game.rolled ? null : rollDice()">
 				<div class="dice__box">
@@ -25,7 +25,7 @@
 			</div>
 			<div class="card__container" v-if="game.rolled">
 				<div class="card">
-					<img :src="`${publicPath}img/${1+game.currentCard}.JPG`" alt="">
+					<img :src="`${publicPath}img/${1 + game.currentCard}.JPG`" alt="" />
 				</div>
 				<button v-if="admin" @click="endRound">Zakończ rundę</button>
 			</div>
@@ -39,9 +39,9 @@
 				>
 					{{ player.player }}
 				</div>
-                <div v-if="voted">
-                    Zagłosowano!
-                </div>
+				<div v-if="voted">
+					Zagłosowano!
+				</div>
 			</div>
 			<div v-if="admin && voted">
 				<button @click="endGame">Zakończ grę</button>
@@ -55,7 +55,7 @@
 </template>
 
 <script>
-    import firebase from "firebase";
+	import firebase from "firebase";
 
 	export default {
 		name: "Table",
@@ -64,8 +64,8 @@
 				oldPlayers: {},
 				game: {},
 				voted: false,
-                oldVoted: [],
-                    publicPath: process.env.BASE_URL,
+				oldVoted: [],
+				publicPath: process.env.BASE_URL
 			};
 		},
 		components: {},
@@ -129,14 +129,14 @@
 				});
 			},
 			rollDice() {
-                const { cards, usedCards, currentCard } = this.game;
-                let cardToPlay = Math.floor(Math.random() * cards.length);
-                usedCards.forEach(card => {
-                    if(cardToPlay === card){
-                        cardToPlay = Math.floor(Math.random() * cards.length);
-                    }
-                });
-                usedCards.push(cardToPlay)
+				const { cards, usedCards, currentCard } = this.game;
+				let cardToPlay = Math.floor(Math.random() * cards.length);
+				usedCards.forEach(card => {
+					if (cardToPlay === card) {
+						cardToPlay = Math.floor(Math.random() * cards.length);
+					}
+				});
+				usedCards.push(cardToPlay);
 				firebase
 					.firestore()
 					.collection("gametable")
@@ -144,9 +144,9 @@
 					.update({
 						"game.k6": Math.floor(1 + Math.random() * 6),
 						"game.k9": Math.floor(1 + Math.random() * 9),
-                        "game.rolled": true,
-                        "game.currentCard": cardToPlay,
-                        "game.usedCards": usedCards,
+						"game.rolled": true,
+						"game.currentCard": cardToPlay,
+						"game.usedCards": usedCards
 					});
 			},
 			endRound() {
@@ -162,7 +162,7 @@
 				this.voted = false;
 				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
 				this.oldVoted = JSON.parse(JSON.stringify(this.game.votedPlayers));
-                const lawirant = Math.floor(Math.random() * this.game.players.length);
+				const lawirant = Math.floor(Math.random() * this.game.players.length);
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
@@ -212,16 +212,16 @@
 				});
 				this.startGame();
 			}
-		},
-		beforeDestroy() {
-			if (this.admin) {
-				firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId)
-					.delete();
-			}
 		}
+		// beforeDestroy() {
+		// 	if (this.admin) {
+		// 		firebase
+		// 			.firestore()
+		// 			.collection("gametable")
+		// 			.doc(this.$route.params.tableId)
+		// 			.delete();
+		// 	}
+		// }
 	};
 </script>
 
@@ -240,9 +240,9 @@
 		.box__card {
 			border: 2px solid #004cff;
 			padding: 20px;
-            img{
-                width: 500px;
-            }
+			img {
+				width: 500px;
+			}
 		}
 		.card__container {
 			display: flex;
@@ -253,9 +253,9 @@
 				border: 2px solid #004cff;
 				padding: 20px;
 				margin-bottom: 20px;
-                img{
-                    width: 500px;
-                }
+				img {
+					width: 500px;
+				}
 			}
 		}
 		.endgame__container {
@@ -267,7 +267,7 @@
 	}
 
 	.users__container {
-        flex-direction: row;
+		flex-direction: row;
 		margin-top: 20px;
 		display: flex;
 		justify-content: center;
