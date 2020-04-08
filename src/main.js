@@ -5,7 +5,7 @@ import router from "./router";
 import store from "./store";
 import config from "../firebase";
 import firebase from "firebase";
-import '@/index.scss'
+require("material-design-icons/iconfont/material-icons.css");
 
 firebase.initializeApp(config);
 firebase.analytics();
@@ -13,7 +13,7 @@ firebase.analytics();
 Vue.config.productionTip = false;
 
 new Vue({
-  router,
-  store,
-  render: h => h(App)
+    router,
+    store,
+    render: (h) => h(App),
 }).$mount("#app");

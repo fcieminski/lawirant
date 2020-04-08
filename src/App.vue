@@ -2,11 +2,25 @@
 	<div id="app">
 		<div class="main">
 			<div class="main__container">
-				<router-view />
+				<div class="sidebar-left">
+					<add-player />
+				</div>
+				<div class="sidebar-right">
+					<router-view />
+				</div>
 			</div>
 		</div>
 	</div>
 </template>
+
+<script>
+	import AddPlayer from "@/components/AddPlayer.vue";
+	export default {
+		components: {
+			AddPlayer
+		}
+	};
+</script>
 
 <style lang="scss">
 	#app {
@@ -28,6 +42,15 @@
 			background: white;
 			width: calc(100vw - 25px);
 			height: calc(100vh - 25px);
+			display: flex;
+			.sidebar-right {
+				flex: 3 0;
+			}
+			.sidebar-left {
+				padding-right: 10px;
+				background: $backgroundSecond;
+				flex: 0 2 400px;
+			}
 		}
 	}
 </style>

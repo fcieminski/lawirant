@@ -1,19 +1,14 @@
 <template>
 	<div class="start">
-		<div class="start__sidebar-left">
-			<input type="text" v-model="name" />
+		<button @click="startGame">Ok</button>
+		<div v-if="createTable">
+			<input placeholder="nazwa nowego stołu" type="text" v-model="tableName" />
+			<button v-show="tableName" @click="createNewTable">Utwórz stół</button>
+			<input placeholder="nazwa istniejącego stołu" type="text" v-model="existingTable" />
+			<button @click="joinExistingTable" v-show="existingTable">Dołącz do stołu</button>
 		</div>
-		<div class="start__sidebar-right">
-			<button @click="startGame">Ok</button>
-			<div v-if="createTable">
-				<input placeholder="nazwa nowego stołu" type="text" v-model="tableName" />
-				<button v-show="tableName" @click="createNewTable">Utwórz stół</button>
-				<input placeholder="nazwa istniejącego stołu" type="text" v-model="existingTable" />
-				<button @click="joinExistingTable" v-show="existingTable">Dołącz do stołu</button>
-			</div>
-			<div v-if="error">
-				{{ error }}
-			</div>
+		<div v-if="error">
+			{{ error }}
 		</div>
 	</div>
 </template>
@@ -143,18 +138,5 @@
 			rgba(234, 239, 14, 1) 68%,
 			rgba(0, 212, 255, 1) 100%
 		);
-	}
-
-	.start {
-		display: flex;
-		height: 100%;
-		.start__sidebar-left {
-			background: $background;
-			border: 2px solid white;
-			flex: 0 0 30%;
-        }
-        .start__sidebar-right{
-	flex: 0 0 70%;
-        }
 	}
 </style>

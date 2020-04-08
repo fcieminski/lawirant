@@ -2,8 +2,21 @@
     box-sizing: border-box;
 }
 
+@font-face {
+    font-family: Voltaire;
+    src: url(~@/assets/fonts/Voltaire-Regular.ttf);
+}
+
 body {
     margin: 0;
 }
 
 $background: linear-gradient(90deg, rgba(0, 153, 4, 1) 8%, rgba(234, 239, 14, 1) 42%, rgba(234, 239, 14, 1) 68%, rgba(0, 212, 255, 1) 100%);
+$backgroundSecond: linear-gradient(90deg, rgba(0, 153, 4, 1) 8%, rgba(0, 212, 255, 1) 100%);
+$mainYellow: rgb(159, 160, 134);
+$mainGreen: rgba(0, 153, 4, 1);
+$mainBlue: rgba(0, 212, 255, 1);
+
+.cp{
+    cursor: pointer;
+}
