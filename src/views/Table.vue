@@ -4,11 +4,18 @@
 			<div class="dice__container" @click="game.rolled ? null : rollDice()">
 				<div class="dice__box">
 					<div class="dice dice--k6">{{ game.k6 }}</div>
-					<div class="dice dice--k9">
-						<p>{{ game.k9 }}</p>
+					<div class="dice dice--k8">
+						<p>{{ game.k8 }}</p>
+					</div>
+					<div
+						:class="{ 'show--arrow': game.nextRollFor === currentPlayer.id }"
+						class="dice__turn animate__turn"
+					>
+						<i class="material-icons-two-tone">forward</i>
 					</div>
 				</div>
 			</div>
+			<div class="table__info">Stół {{ tableName }} o id {{ $route.params.tableId }}</div>
 		</div>
 		<div class="table__top">
 			<div v-if="game.started">
@@ -44,8 +51,8 @@
 			<div class="dice__container" @click="game.rolled ? null : rollDice()">
 				<div class="dice__box">
 					<div class="dice dice--k6">{{ game.k6 }}</div>
-					<div class="dice dice--k9">
-						<p>{{ game.k9 }}</p>
+					<div class="dice dice--k8">
+						<p>{{ game.k8 }}</p>
 					</div>
 				</div>
 			</div>
@@ -91,7 +98,8 @@
 				game: {},
 				voted: false,
 				oldVoted: [],
-				publicPath: process.env.BASE_URL
+				publicPath: process.env.BASE_URL,
+				tableName: ""
 			};
 		},
 		components: {},
@@ -101,28 +109,38 @@
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId)
-					.onSnapshot(doc => {
-                        this.game = doc.data().game;
-                        
-						const playersWithoutCurrent = this.game.players.filter(
-							player => player.id !== this.$route.params.playerId
-						);
-                        const isAdmin = this.game.players.some(player => this.$route.params.playerId === player.id);
-                        
-						this.$eventBus.$emit("players", playersWithoutCurrent);
-						this.$eventBus.$emit("prepareToPlay", isAdmin);
-					});
+					.onSnapshot(
+						doc => {
+							this.game = doc.data().game;
+							this.tableName = doc.data().tableName;
+
+							const playersWithoutCurrent = this.game.players.filter(
+								player => player.id !== this.$route.params.playerId
+							);
+							const isAdmin = this.game.players.some(player => this.$route.params.playerId === player.id);
+
+							this.$eventBus.$emit("players", playersWithoutCurrent);
+							this.$eventBus.$emit("prepareToPlay", isAdmin);
+						},
+						e => {
+							console.warn(e);
+						}
+					);
 			}
 			this.$eventBus.$on("startGame", () => {
 				this.startGame();
 			});
+			this.$eventBus.$on("resetGame", () => {
+				this.resetGame();
+			});
 		},
 		computed: {
 			showOtherPlayers() {
-				return Object.values(this.game.players).filter(player => player.id !== this.$route.params.playerId);
+				return this.game.players.filter(player => player.id !== this.$route.params.playerId);
 			},
 			currentPlayer() {
-				return Object.values(this.game.players).find(player => player.id === this.$route.params.playerId);
+                console.log(this.game.players)
+				return this.game.players.find(player => player.id === this.$route.params.playerId);
 			},
 			admin() {
 				return this.game.admin === this.$route.params.playerId;
@@ -130,7 +148,7 @@
 			isTypedRight() {
 				let typed = this.game.typedPlayer && this.game.typedPlayer[0];
 				if (typed) {
-					let player = Object.values(this.game.players).find(player => player.id === typed.id);
+					let player = this.game.players.find(player => player.id === typed.id);
 					return player.card ? `Dobrze! lawirantem jest: ${player.player}` : `Buuu... lawirant jest bezpieczny!`;
 				}
 			}
@@ -171,9 +189,37 @@
 						console.warn(e);
 					});
 			},
+			async resetGame() {
+				let fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
+				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers)); // object!!
+				fire.update({
+					"game.started": false,
+					"game.k6": 0,
+					"game.k8": 0,
+					"game.rolled": false,
+					"game.showPlayersToVote": false,
+					"game.votedPlayers": this.oldVoted,
+					"game.points": [],
+					"game.typedPlayer": [],
+					"game.nextRollFor": null,
+					"game.usedCards": [],
+					"game.currentCard": 0
+				});
+			},
+			nextRoll(currentId) {
+				const currentIndex = this.game.players.findIndex(player => player.id === currentId);
+				const isLast = this.game.players.length - 1 === currentIndex;
+				const nextPersonId = isLast ? this.game.players[0].id : this.game.players[currentIndex + 1].id;
+				return nextPersonId;
+			},
 			rollDice() {
 				const { cards, usedCards, currentCard } = this.game;
-				let cardToPlay = Math.floor(Math.random() * cards.length);
+				const cardToPlay = Math.floor(Math.random() * cards.length);
+				const nextRoll = this.nextRoll(this.game.nextRollFor);
+
 				usedCards.forEach(card => {
 					if (cardToPlay === card) {
 						cardToPlay = Math.floor(Math.random() * cards.length);
@@ -186,10 +232,11 @@
 					.doc(this.$route.params.tableId)
 					.update({
 						"game.k6": Math.floor(1 + Math.random() * 6),
-						"game.k9": Math.floor(1 + Math.random() * 8),
+						"game.k8": Math.floor(1 + Math.random() * 8),
 						"game.rolled": true,
 						"game.currentCard": cardToPlay,
-						"game.usedCards": usedCards
+						"game.usedCards": usedCards,
+						"game.nextRollFor": nextRoll
 					});
 			},
 			endRound() {
@@ -206,6 +253,7 @@
 				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
 				this.oldVoted = JSON.parse(JSON.stringify(this.game.votedPlayers));
 				const lawirant = Math.floor(Math.random() * this.game.players.length);
+				const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
@@ -214,7 +262,8 @@
 					this.game.players[lawirant].card = true;
 					fire.update({
 						"game.players": this.game.players,
-						"game.started": true
+						"game.started": true,
+						"game.nextRollFor": personToRoll.id
 					});
 				} catch (e) {
 					console.error(e);
@@ -229,7 +278,7 @@
 				fire.update({
 					"game.started": false,
 					"game.k6": 0,
-					"game.k9": 0,
+					"game.k8": 0,
 					"game.rolled": false,
 					"game.showPlayersToVote": false,
 					"game.votedPlayers": this.oldVoted,
@@ -247,7 +296,7 @@
 				fire.update({
 					"game.started": false,
 					"game.k6": 0,
-					"game.k9": 0,
+					"game.k8": 0,
 					"game.rolled": false,
 					"game.showPlayersToVote": false,
 					"game.votedPlayers": this.oldVoted,
@@ -282,6 +331,13 @@
 		.table__header {
 			flex: 1;
 			background: $mainBlue;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			.table__info {
+				font-size: 2rem;
+				color: $mainGreen;
+			}
 			.dice__container {
 				margin-left: 20px;
 				margin-bottom: 20px;
@@ -289,9 +345,19 @@
 					display: flex;
 					justify-content: space-between;
 					align-items: center;
-					width: 250px;
+					width: 350px;
 					border-radius: 4px;
 					margin-top: 20px;
+					.dice__turn {
+						transform: rotate(180deg);
+						visibility: hidden;
+						&.animate__turn {
+							animation: yourturn ease-in 0.7s infinite;
+						}
+						&.show--arrow {
+							visibility: visible;
+						}
+					}
 					cursor: pointer;
 					.dice {
 						width: 70px;
@@ -307,7 +373,7 @@
 							color: white;
 							background: $mainGreen;
 						}
-						&.dice--k9 {
+						&.dice--k8 {
 							color: white;
 							font-size: 2rem;
 							position: relative;
@@ -397,6 +463,18 @@
 			justify-content: center;
 			align-items: center;
 			margin: 10px;
+		}
+	}
+
+	@keyframes yourturn {
+		0% {
+			transform: rotate(180deg) translate(0, 0);
+		}
+		50% {
+			transform: rotate(180deg) translate(50px, 0);
+		}
+		100% {
+			transform: rotate(180deg) translate(0, 0);
 		}
 	}
 </style>
