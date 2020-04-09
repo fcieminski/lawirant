@@ -103,10 +103,11 @@
 						.collection("gametable/")
 						.doc(table.id)
 						.set({
+                            tableName: table.name,
 							game: {
 								players: [
 									{
-										player: this.currentPlayer.name,
+										name: this.currentPlayer.name,
 										card: false,
 										id: this.currentPlayer.id
 									}
@@ -114,13 +115,13 @@
 								started: false,
 								admin: this.currentPlayer.id,
 								k6: 0,
-								k9: 0,
+								k8: 0,
 								rolled: false,
 								showPlayersToVote: false,
-								nextRollFor: this.currentPlayer.id,
+								nextRollFor: null,
 								votedPlayers: [
 									{
-										player: this.currentPlayer.name,
+										name: this.currentPlayer.name,
 										id: this.currentPlayer.id,
 										count: 0
 									}
@@ -153,12 +154,12 @@
 						.doc(existingTable)
 						.update({
 							"game.players": firebase.firestore.FieldValue.arrayUnion({
-								player: this.currentPlayer.name,
+								name: this.currentPlayer.name,
 								id: this.currentPlayer.id,
 								card: false
 							}),
 							"game.votedPlayers": firebase.firestore.FieldValue.arrayUnion({
-								player: this.currentPlayer.name,
+								name: this.currentPlayer.name,
 								id: this.currentPlayer.id,
 								count: 0
 							}),

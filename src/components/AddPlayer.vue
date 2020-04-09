@@ -23,13 +23,18 @@
 				<div v-if="players">
 					<div v-for="player in players" :key="player.id" class="players__player">
 						<i class="material-icons-two-tone">face</i>
-						<span>{{ player.player }}</span>
+						<span>{{ player.name }}</span>
 					</div>
 				</div>
 			</div>
 		</div>
-		<div v-if="clickToStart" class="button__container">
-			<div @click="$eventBus.$emit('startGame')" class="btn">Rozpocznij</div>
+		<div v-if="clickToStart">
+			<div  class="button__container">
+				<div @click="$eventBus.$emit('startGame')" class="btn">Rozpocznij</div>
+			</div>
+			<div  class="button__container">
+				<div @click="$eventBus.$emit('resetGame')" class="btn">Resetuj</div>
+			</div>
 		</div>
 	</div>
 </template>
