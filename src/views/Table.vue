@@ -187,19 +187,34 @@
 				const currentIndex = this.game.players.findIndex(player => player.id === currentId);
 				const isLast = this.game.players.length - 1 === currentIndex;
 				const nextPersonId = isLast ? this.game.players[0].id : this.game.players[currentIndex + 1].id;
+
 				return nextPersonId;
 			},
-			rollDice() {
+			removeUsedCards() {
 				const { cards, usedCards, currentCard } = this.game;
-				const cardToPlay = Math.floor(Math.random() * cards.length);
-				const nextRoll = this.nextRoll(this.game.nextRollFor);
+				if (usedCards.length !== cards.length) {
+					let cardToPlay = Math.floor(Math.random() * cards.length);
 
-				usedCards.forEach(card => {
-					if (cardToPlay === card) {
-						cardToPlay = Math.floor(Math.random() * cards.length);
-					}
-				});
-				usedCards.push(cardToPlay);
+					usedCards.forEach(card => {
+						if (cardToPlay === card) {
+							cardToPlay = Math.floor(Math.random() * cards.length);
+						}
+					});
+
+					usedCards.push(cardToPlay);
+
+					return {
+						usedCards,
+						cardToPlay
+					};
+				} else {
+					return false;
+				}
+			},
+			rollDice() {
+				const nextRoll = this.nextRoll(this.game.nextRollFor);
+				const cards = this.removeUsedCards();
+
 				firebase
 					.firestore()
 					.collection("gametable")
@@ -208,8 +223,8 @@
 						"game.k6": Math.floor(1 + Math.random() * 6),
 						"game.k8": Math.floor(1 + Math.random() * 8),
 						"game.rolled": true,
-						"game.currentCard": cardToPlay,
-						"game.usedCards": usedCards,
+						"game.currentCard": cards.cardToPlay,
+						"game.usedCards": cards.usedCards,
 						"game.nextRollFor": nextRoll
 					});
 			},
@@ -222,12 +237,23 @@
 						"game.showPlayersToVote": true
 					});
 			},
+			async endVote() {
+				let fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
+				let data = await fire.get().then(doc => {
+					return doc.data().game;
+				});
+				let maxVotes = data.votedPlayers.reduce((max, player) => (max.count > player.count ? max : player));
+				fire.update({
+					"game.typedPlayer": [maxVotes]
+				});
+			},
 			async startGame() {
 				try {
 					this.oldGameObject = await this.deepCopy(this.game);
 
-					// this.oldPlayers = await this.deepCopy(this.game.players);
-					// this.oldVoted = await this.deepCopy(this.game.votedPlayers);
 					this.voted = false;
 					const lawirant = Math.floor(Math.random() * this.game.players.length);
 					const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
@@ -248,80 +274,36 @@
 					console.error(e);
 				}
 			},
+			async startNextRound() {
+				const fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
+				try {
+					fire.update({
+						game: {
+							...this.oldGameObject
+						}
+					});
+				} catch (e) {
+					console.error(e);
+				}
+				this.startGame();
+			},
 			async resetGame() {
 				if (this.game.started) {
 					let fire = await firebase
 						.firestore()
 						.collection("gametable")
-                        .doc(this.$route.params.tableId);
-                        try{
-
-                            this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
-					fire.update({
-                        "game.started": false,
-						"game.k6": 0,
-						"game.k8": 0,
-						"game.rolled": false,
-						"game.showPlayersToVote": false,
-						"game.votedPlayers": this.oldVoted,
-						"game.points": [],
-						"game.typedPlayer": [],
-						"game.nextRollFor": null,
-						"game.usedCards": [],
-						"game.currentCard": 0
-					});
-                        } catch(e) {
-                            console.warn(e)
-                        }
+						.doc(this.$route.params.tableId);
+					try {
+						fire.update({
+							game: this.oldGameObject
+						});
+					} catch (e) {
+						console.warn(e);
+					}
 				}
-			},
-			// async startNewGame() {
-			// 	let fire = await firebase
-			// 		.firestore()
-			// 		.collection("gametable")
-			// 		.doc(this.$route.params.tableId);
-			// 	this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
-			// 	fire.update({
-			// 		"game.started": false,
-			// 		"game.k6": 0,
-			// 		"game.k8": 0,
-			// 		"game.rolled": false,
-			// 		"game.showPlayersToVote": false,
-			// 		"game.votedPlayers": this.oldVoted,
-			// 		"game.points": [],
-			// 		"game.typedPlayer": []
-			// 	});
-			// 	this.startGame();
-			// },
-			async startNextRound() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
-				fire.update({
-					"game.started": false,
-					"game.k6": 0,
-					"game.k8": 0,
-					"game.rolled": false,
-					"game.showPlayersToVote": false,
-					"game.votedPlayers": this.oldVoted,
-					"game.typedPlayer": []
-				});
-				this.startGame();
-			},
-			async endGame() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				let data = await fire.get().then(doc => {
-					return doc.data().game;
-				});
-				let maxVotes = data.votedPlayers.reduce((max, player) => (max.count > player.count ? max : player));
-				fire.update({
-					"game.typedPlayer": [maxVotes]
-				});
 			}
 		}
 	};
