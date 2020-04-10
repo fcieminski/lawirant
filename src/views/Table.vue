@@ -1,19 +1,29 @@
 <template>
 	<div class="table" v-if="game.players">
 		<div class="table__header">
-			<div class="dice__container" @click="game.rolled ? null : rollDice()">
+			<div
+				class="dice__container"
+				@click="!game.rolled && game.nextRollFor === currentPlayer.id ? rollDice() : null"
+			>
 				<div class="dice__box">
 					<div class="dice dice--k6">{{ game.k6 }}</div>
 					<div class="dice dice--k8">
 						<p>{{ game.k8 }}</p>
 					</div>
 					<div
-						:class="{ 'show--arrow': game.nextRollFor === currentPlayer.id }"
+						:class="{ 'show--arrow': !game.rolled && game.nextRollFor === currentPlayer.id }"
 						class="dice__turn animate__turn"
 					>
 						<i class="material-icons-two-tone">forward</i>
 					</div>
 				</div>
+			</div>
+			<div
+				class="btn btn--green"
+				@click="game.rolled ? endRound() : null"
+				:style="game.rolled && admin ? 'visibility: visible;' : 'visibility: hidden;'"
+			>
+				Zakończ rundę
 			</div>
 			<div class="table__info">Stół {{ tableName }} o id {{ $route.params.tableId }}</div>
 		</div>
@@ -33,57 +43,12 @@
 				</div>
 			</div>
 		</div>
-		<!-- <div>Stół: {{ $route.params.tableId }}</div>
-		<div>Gracz: {{ currentPlayer && currentPlayer.player }}</div>
-		<div>
-			<p>Gracze:</p>
-			<div v-for="(player, index) in game.players" :key="index">{{ player.player }}</div>
-		</div>
-		<div>
-			<button v-if="admin && !game.started" @click="startGame">Zacznij grę</button>
-			<button v-if="admin && game.started" @click="startNewGame">Nowa gra</button>
-		</div>
-		<div class="game__box" v-if="game.started">
-			<div class="box__card">
-				<img v-if="!currentPlayer.card" :src="`${publicPath}img/card${game.cardSet}.JPG`" alt="" />
-				<span v-else>JESTEŚ LAWIRANTEM!</span>
-			</div>
-			<div class="dice__container" @click="game.rolled ? null : rollDice()">
-				<div class="dice__box">
-					<div class="dice dice--k6">{{ game.k6 }}</div>
-					<div class="dice dice--k8">
-						<p>{{ game.k8 }}</p>
-					</div>
-				</div>
-			</div>
-			<div class="card__container" v-if="game.rolled">
-				<div class="card">
-					<img :src="`${publicPath}img/${1 + game.currentCard}.JPG`" alt="" />
-				</div>
-				<button v-if="admin" @click="endRound">Zakończ rundę</button>
-			</div>
-			<div class="users__container" v-if="game.showPlayersToVote">
-				<div>Zagłosuj na gracza!</div>
-				<div
-					@click="voteForPlayer(player)"
-					v-for="(player, index) in showOtherPlayers"
-					:key="index"
-					class="player__icon"
-				>
-					{{ player.player }}
-				</div>
-				<div v-if="voted">
-					Zagłosowano!
-				</div>
-			</div>
-			<div v-if="admin && voted">
-				<button @click="endGame">Zakończ grę</button>
-			</div>
-			<div class="endgame__container" v-if="game.typedPlayer.length !== 0">
+		<div v-if="isTypedRight" class="end-round__pop-up">
+			<div class="pop-up__container">
 				<div>{{ isTypedRight }}</div>
-				<button @click="startNextRound">Nowa runda!</button>
+				<div v-if="admin" @click="startNextRound" class="btn">Następna runda</div>
 			</div>
-		</div> -->
+		</div>
 	</div>
 </template>
 
@@ -94,10 +59,8 @@
 		name: "Table",
 		data() {
 			return {
-				oldPlayers: {},
 				game: {},
-				voted: false,
-				oldVoted: [],
+				oldGameObject: null,
 				publicPath: process.env.BASE_URL,
 				tableName: ""
 			};
@@ -117,55 +80,65 @@
 							const playersWithoutCurrent = this.game.players.filter(
 								player => player.id !== this.$route.params.playerId
 							);
-							const isAdmin = this.game.players.some(player => this.$route.params.playerId === player.id);
+
+							const isAdmin = this.game.admin === this.$route.params.playerId;
+
+							const endVote = this.game.players.every(player =>
+								doc.data().game.alreadyVoted.includes(player.id)
+							);
+
+							if (endVote) {
+								this.endVote();
+							}
 
 							this.$eventBus.$emit("players", playersWithoutCurrent);
 							this.$eventBus.$emit("prepareToPlay", isAdmin);
+                            this.$eventBus.$emit("startVote", this.game.showPlayersToVote);
 						},
 						e => {
 							console.warn(e);
 						}
 					);
 			}
+
+			this.oldGameObject = JSON.parse(localStorage.getItem("oldGameObject"));
+
 			this.$eventBus.$on("startGame", () => {
 				this.startGame();
 			});
 			this.$eventBus.$on("resetGame", () => {
 				this.resetGame();
 			});
+			this.$eventBus.$on("votedPlayer", payload => {
+				this.voteForPlayer(payload);
+			});
 		},
 		computed: {
 			showOtherPlayers() {
-				return this.game.players.filter(player => player.id !== this.$route.params.playerId);
+				return this.game.players && this.game.players.filter(player => player.id !== this.$route.params.playerId);
 			},
 			currentPlayer() {
-                console.log(this.game.players)
-				return this.game.players.find(player => player.id === this.$route.params.playerId);
+				return this.game.players && this.game.players.find(player => player.id === this.$route.params.playerId);
 			},
 			admin() {
-				return this.game.admin === this.$route.params.playerId;
+				return this.game.players && this.game.admin === this.$route.params.playerId;
 			},
 			isTypedRight() {
 				let typed = this.game.typedPlayer && this.game.typedPlayer[0];
 				if (typed) {
 					let player = this.game.players.find(player => player.id === typed.id);
-					return player.card ? `Dobrze! lawirantem jest: ${player.player}` : `Buuu... lawirant jest bezpieczny!`;
+					return player.card ? `Dobrze! lawirantem jest: ${player.name}` : `Buuu... lawirant jest bezpieczny!`;
 				}
+				return false;
 			}
 		},
 		methods: {
-			async endGame() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				let data = await fire.get().then(doc => {
-					return doc.data().game;
-				});
-				let maxVotes = data.votedPlayers.reduce((max, player) => (max.count > player.count ? max : player));
-				fire.update({
-					"game.typedPlayer": [maxVotes]
-				});
+			deepCopy(toClone) {
+				if ("length" in toClone) {
+					return Array.from(toClone, element => Object.assign({}, element));
+				} else {
+					return JSON.parse(JSON.stringify(toClone));
+				}
 			},
 			voteForPlayer(player) {
 				let fire = firebase
@@ -174,58 +147,50 @@
 					.doc(this.$route.params.tableId);
 				fire.get()
 					.then(doc => {
-						let players = doc.data().game.players;
-						let votedPlayers = doc.data().game.votedPlayers;
+						const { votedPlayers } = doc.data().game;
 						let index = votedPlayers.findIndex(currentPlayer => currentPlayer.id === player.id);
-						if (!this.voted) {
-							votedPlayers[index].count++;
-							fire.update({
-								"game.votedPlayers": votedPlayers
-							});
-						}
-						this.voted = true;
+						votedPlayers[index].count++;
+						fire.update({
+							"game.votedPlayers": votedPlayers,
+							"game.alreadyVoted": firebase.firestore.FieldValue.arrayUnion(this.currentPlayer.id)
+						});
 					})
 					.catch(e => {
 						console.warn(e);
 					});
 			},
-			async resetGame() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers)); // object!!
-				fire.update({
-					"game.started": false,
-					"game.k6": 0,
-					"game.k8": 0,
-					"game.rolled": false,
-					"game.showPlayersToVote": false,
-					"game.votedPlayers": this.oldVoted,
-					"game.points": [],
-					"game.typedPlayer": [],
-					"game.nextRollFor": null,
-					"game.usedCards": [],
-					"game.currentCard": 0
-				});
-			},
 			nextRoll(currentId) {
 				const currentIndex = this.game.players.findIndex(player => player.id === currentId);
 				const isLast = this.game.players.length - 1 === currentIndex;
 				const nextPersonId = isLast ? this.game.players[0].id : this.game.players[currentIndex + 1].id;
+
 				return nextPersonId;
 			},
-			rollDice() {
+			removeUsedCards() {
 				const { cards, usedCards, currentCard } = this.game;
-				const cardToPlay = Math.floor(Math.random() * cards.length);
-				const nextRoll = this.nextRoll(this.game.nextRollFor);
+				if (usedCards.length !== cards.length) {
+					let cardToPlay = Math.floor(Math.random() * cards.length);
 
-				usedCards.forEach(card => {
-					if (cardToPlay === card) {
-						cardToPlay = Math.floor(Math.random() * cards.length);
-					}
-				});
-				usedCards.push(cardToPlay);
+					usedCards.forEach(card => {
+						if (cardToPlay === card) {
+							cardToPlay = Math.floor(Math.random() * cards.length);
+						}
+					});
+
+					usedCards.push(cardToPlay);
+
+					return {
+						usedCards,
+						cardToPlay
+					};
+				} else {
+					return false;
+				}
+			},
+			rollDice() {
+				const nextRoll = this.nextRoll(this.game.nextRollFor);
+				const cards = this.removeUsedCards();
+
 				firebase
 					.firestore()
 					.collection("gametable")
@@ -234,8 +199,8 @@
 						"game.k6": Math.floor(1 + Math.random() * 6),
 						"game.k8": Math.floor(1 + Math.random() * 8),
 						"game.rolled": true,
-						"game.currentCard": cardToPlay,
-						"game.usedCards": usedCards,
+						"game.currentCard": cards.cardToPlay,
+						"game.usedCards": cards.usedCards,
 						"game.nextRollFor": nextRoll
 					});
 			},
@@ -248,80 +213,104 @@
 						"game.showPlayersToVote": true
 					});
 			},
-			async startGame() {
-				this.voted = false;
-				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
-				this.oldVoted = JSON.parse(JSON.stringify(this.game.votedPlayers));
-				const lawirant = Math.floor(Math.random() * this.game.players.length);
-				const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
+			async endVote() {
 				let fire = await firebase
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
+
+				let voted = await fire.get().then(doc => {
+					return doc.data().game.votedPlayers;
+				});
+
+				let maxVotes = voted.reduce((max, player) => (max.count > player.count ? max : player));
+				console.log(maxVotes);
+
+				fire.update({
+					"game.typedPlayer": [maxVotes]
+				});
+			},
+			async startGame() {
+				if (!this.game.started) {
+					try {
+						this.oldGameObject = await this.deepCopy(this.game);
+						localStorage.setItem("oldGameObject", JSON.stringify(this.oldGameObject));
+
+						if (this.game.players) {
+							const lawirant = Math.floor(Math.random() * this.game.players.length);
+							const personToRoll = this.game.players[
+								Math.floor(Math.random() * (this.game.players.length - 1))
+							];
+							this.game.players[lawirant].card = true;
+
+							const fire = await firebase
+								.firestore()
+								.collection("gametable")
+								.doc(this.$route.params.tableId);
+
+							fire.update({
+								"game.players": this.game.players,
+								"game.started": true,
+								"game.nextRollFor": personToRoll.id
+							});
+						}
+					} catch (e) {
+						console.error(e);
+					}
+				}
+			},
+			async startNextRound() {
+				const fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
 				try {
+					this.game.players.forEach(player => {
+						player.card = false;
+					});
+
+					const lawirant = Math.floor(Math.random() * this.game.players.length);
+					const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
 					this.game.players[lawirant].card = true;
+
 					fire.update({
-						"game.players": this.game.players,
-						"game.started": true,
-						"game.nextRollFor": personToRoll.id
+						game: {
+							...this.oldGameObject,
+							points: [],
+							usedCards: this.game.usedCards,
+							players: this.game.players,
+							started: true,
+							nextRollFor: personToRoll.id
+						}
 					});
 				} catch (e) {
 					console.error(e);
 				}
 			},
-			async startNewGame() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
-				fire.update({
-					"game.started": false,
-					"game.k6": 0,
-					"game.k8": 0,
-					"game.rolled": false,
-					"game.showPlayersToVote": false,
-					"game.votedPlayers": this.oldVoted,
-					"game.points": [],
-					"game.typedPlayer": []
-				});
-				this.startGame();
-			},
-			async startNextRound() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
-				fire.update({
-					"game.started": false,
-					"game.k6": 0,
-					"game.k8": 0,
-					"game.rolled": false,
-					"game.showPlayersToVote": false,
-					"game.votedPlayers": this.oldVoted,
-					"game.typedPlayer": []
-				});
-				this.startGame();
+			async resetGame() {
+				if (this.game.started) {
+					let fire = await firebase
+						.firestore()
+						.collection("gametable")
+						.doc(this.$route.params.tableId);
+					try {
+						fire.update({
+							game: this.oldGameObject
+						});
+					} catch (e) {
+						console.warn(e);
+					}
+				}
 			}
 		}
-		// beforeDestroy() {
-		// 	if (this.admin) {
-		// 		firebase
-		// 			.firestore()
-		// 			.collection("gametable")
-		// 			.doc(this.$route.params.tableId)
-		// 			.delete();
-		// 	}
-		// }
 	};
 </script>
 
 <style lang='scss' scoped>
-	::selection {
-		color: none;
-		background: none;
-	}
+	// ::selection {
+	// 	color: none;
+	// 	background: none;
+	// }
 
 	.table {
 		display: flex;
@@ -463,6 +452,35 @@
 			justify-content: center;
 			align-items: center;
 			margin: 10px;
+		}
+	}
+
+	.end-round__pop-up {
+		position: absolute;
+		width: 100vw;
+		height: 100vh;
+		z-index: 999;
+		left: 0;
+		top: 0;
+		overflow: hidden;
+		background-color: #538e4780;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		.pop-up__container {
+			width: 700px;
+			height: 300px;
+			box-shadow: 10px 10px 27px 0px rgba(0, 0, 0, 0.28);
+			font-size: 2rem;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			color: white;
+			background: $backgroundSecond;
+			.btn {
+				margin-top: 30px;
+			}
 		}
 	}
 

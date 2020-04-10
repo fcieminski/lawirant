@@ -21,18 +21,25 @@
 					<span>{{ newPlayer.name }}</span>
 				</div>
 				<div v-if="players">
-					<div v-for="player in players" :key="player.id" class="players__player">
+					<div
+						@click="startVote && !voted ? voteForPlayer(player) : null"
+						v-for="player in players"
+						:key="player.id"
+						class="players__player"
+						:class="[voted && voted.id === player.id && startVote ? 'players__vote' : '', 'cp']"
+					>
 						<i class="material-icons-two-tone">face</i>
 						<span>{{ player.name }}</span>
+						<i v-if="startVote" class="material-icons-two-tone vote__indicator">forward</i>
 					</div>
 				</div>
 			</div>
 		</div>
 		<div v-if="clickToStart">
-			<div  class="button__container">
+			<div class="button__container">
 				<div @click="$eventBus.$emit('startGame')" class="btn">Rozpocznij</div>
 			</div>
-			<div  class="button__container">
+			<div class="button__container">
 				<div @click="$eventBus.$emit('resetGame')" class="btn">Resetuj</div>
 			</div>
 		</div>
@@ -48,7 +55,9 @@
 				name: "",
 				newPlayer: null,
 				players: {},
-				clickToStart: false
+				clickToStart: false,
+				startVote: false,
+				voted: null
 			};
 		},
 		components: {},
@@ -57,7 +66,12 @@
 			"$route.params": function() {
 				const id = this.$route.params.id || this.$route.params.playerId;
 				this.getPlayerData(id);
-			}
+            },
+            startVote(val){
+                if(!val){
+                    this.voted = null
+                }
+            }
 		},
 
 		created() {
@@ -69,6 +83,9 @@
 			});
 			this.$eventBus.$on("prepareToPlay", payload => {
 				this.clickToStart = payload;
+			});
+			this.$eventBus.$on("startVote", payload => {
+				this.startVote = payload;
 			});
 		},
 		computed: {},
@@ -118,6 +135,12 @@
 							console.warn(e);
 						});
 				}
+			},
+			voteForPlayer(player) {
+				if (!this.voted) {
+					this.voted = { ...player };
+					this.$eventBus.$emit("votedPlayer", player);
+				}
 			}
 		},
 		destroyed() {
@@ -153,6 +176,7 @@
 		font-size: 1.5rem;
 		.players__player {
 			margin: 20px 20px 10px 20px;
+			padding: 5px;
 			display: flex;
 			justify-content: left;
 			align-items: center;
@@ -164,6 +188,13 @@
 			i {
 				margin-right: 20px;
 			}
+			&.players__vote {
+				border: 3px solid yellow;
+			}
 		}
+	}
+	.vote__indicator {
+		transform: rotate(180deg);
+		margin-left: auto;
 	}
 </style>

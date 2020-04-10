@@ -130,7 +130,8 @@
 								typedPlayer: [],
 								cardSet: 1,
 								cards: arr,
-								usedCards: [],
+                                usedCards: [],
+                                alreadyVoted: [],
 								currentCard: 0
 							}
 						})
