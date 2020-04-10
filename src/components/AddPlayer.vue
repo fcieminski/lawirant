@@ -21,7 +21,7 @@
 					<span>{{ newPlayer.name }}</span>
 				</div>
 				<div v-if="players">
-					<div v-for="player in players" :key="player.id" class="players__player">
+					<div @click="startVote ? $eventBus.$emit('votedPlayer', player) : null" v-for="player in players" :key="player.id" class="players__player" :class="{'players__vote': startVote}">
 						<i class="material-icons-two-tone">face</i>
 						<span>{{ player.name }}</span>
 					</div>
@@ -48,7 +48,8 @@
 				name: "",
 				newPlayer: null,
 				players: {},
-				clickToStart: false
+                clickToStart: false,
+                startVote: false,
 			};
 		},
 		components: {},
@@ -69,6 +70,9 @@
 			});
 			this.$eventBus.$on("prepareToPlay", payload => {
 				this.clickToStart = payload;
+			});
+			this.$eventBus.$on("startVote", payload => {
+				this.startVote = payload;
 			});
 		},
 		computed: {},
@@ -152,7 +156,8 @@
 		color: white;
 		font-size: 1.5rem;
 		.players__player {
-			margin: 20px 20px 10px 20px;
+            margin: 20px 20px 10px 20px;
+            padding: 5px;
 			display: flex;
 			justify-content: left;
 			align-items: center;
@@ -163,7 +168,10 @@
 			}
 			i {
 				margin-right: 20px;
-			}
+            }
+            &.players__vote{
+                border: 3px solid yellow;
+            }
 		}
 	}
 </style>

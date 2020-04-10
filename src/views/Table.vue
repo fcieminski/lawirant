@@ -15,6 +15,13 @@
 					</div>
 				</div>
 			</div>
+			<div
+				class="btn btn--green"
+				@click="game.rolled ? endRound() : null"
+				:style="game.rolled ? 'visibility: visible;' : 'visibility: hidden;'"
+			>
+				Zakończ rundę
+			</div>
 			<div class="table__info">Stół {{ tableName }} o id {{ $route.params.tableId }}</div>
 		</div>
 		<div class="table__top">
@@ -33,57 +40,6 @@
 				</div>
 			</div>
 		</div>
-		<!-- <div>Stół: {{ $route.params.tableId }}</div>
-		<div>Gracz: {{ currentPlayer && currentPlayer.player }}</div>
-		<div>
-			<p>Gracze:</p>
-			<div v-for="(player, index) in game.players" :key="index">{{ player.player }}</div>
-		</div>
-		<div>
-			<button v-if="admin && !game.started" @click="startGame">Zacznij grę</button>
-			<button v-if="admin && game.started" @click="startNewGame">Nowa gra</button>
-		</div>
-		<div class="game__box" v-if="game.started">
-			<div class="box__card">
-				<img v-if="!currentPlayer.card" :src="`${publicPath}img/card${game.cardSet}.JPG`" alt="" />
-				<span v-else>JESTEŚ LAWIRANTEM!</span>
-			</div>
-			<div class="dice__container" @click="game.rolled ? null : rollDice()">
-				<div class="dice__box">
-					<div class="dice dice--k6">{{ game.k6 }}</div>
-					<div class="dice dice--k8">
-						<p>{{ game.k8 }}</p>
-					</div>
-				</div>
-			</div>
-			<div class="card__container" v-if="game.rolled">
-				<div class="card">
-					<img :src="`${publicPath}img/${1 + game.currentCard}.JPG`" alt="" />
-				</div>
-				<button v-if="admin" @click="endRound">Zakończ rundę</button>
-			</div>
-			<div class="users__container" v-if="game.showPlayersToVote">
-				<div>Zagłosuj na gracza!</div>
-				<div
-					@click="voteForPlayer(player)"
-					v-for="(player, index) in showOtherPlayers"
-					:key="index"
-					class="player__icon"
-				>
-					{{ player.player }}
-				</div>
-				<div v-if="voted">
-					Zagłosowano!
-				</div>
-			</div>
-			<div v-if="admin && voted">
-				<button @click="endGame">Zakończ grę</button>
-			</div>
-			<div class="endgame__container" v-if="game.typedPlayer.length !== 0">
-				<div>{{ isTypedRight }}</div>
-				<button @click="startNextRound">Nowa runda!</button>
-			</div>
-		</div> -->
 	</div>
 </template>
 
@@ -96,7 +52,7 @@
 			return {
 				oldPlayers: [],
 				game: {},
-				oldGameObject: {},
+				oldGameObject: null,
 				voted: false,
 				oldVoted: [],
 				publicPath: process.env.BASE_URL,
@@ -118,21 +74,35 @@
 							const playersWithoutCurrent = this.game.players.filter(
 								player => player.id !== this.$route.params.playerId
 							);
+
 							const isAdmin = this.game.players.some(player => this.$route.params.playerId === player.id);
+
+							const endVote = this.game.players.every(player =>
+								doc.data().game.alreadyVoted.includes(player.id)
+							);
+
+							console.log(endVote);
 
 							this.$eventBus.$emit("players", playersWithoutCurrent);
 							this.$eventBus.$emit("prepareToPlay", isAdmin);
+							this.$eventBus.$emit("startVote", doc.data().game.showPlayersToVote);
 						},
 						e => {
 							console.warn(e);
 						}
 					);
 			}
+
+			this.oldGameObject = JSON.parse(localStorage.getItem("oldGameObject"));
+
 			this.$eventBus.$on("startGame", () => {
 				this.startGame();
 			});
 			this.$eventBus.$on("resetGame", () => {
 				this.resetGame();
+			});
+			this.$eventBus.$on("votedPlayer", payload => {
+				this.voteForPlayer(payload);
 			});
 		},
 		computed: {
@@ -168,13 +138,13 @@
 					.doc(this.$route.params.tableId);
 				fire.get()
 					.then(doc => {
-						let players = doc.data().game.players;
-						let votedPlayers = doc.data().game.votedPlayers;
+						const { votedPlayers } = doc.data().game;
 						let index = votedPlayers.findIndex(currentPlayer => currentPlayer.id === player.id);
 						if (!this.voted) {
 							votedPlayers[index].count++;
 							fire.update({
-								"game.votedPlayers": votedPlayers
+								"game.votedPlayers": votedPlayers,
+								"game.alreadyVoted": firebase.firestore.FieldValue.arrayUnion(this.currentPlayer.id)
 							});
 						}
 						this.voted = true;
@@ -242,10 +212,13 @@
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
-				let data = await fire.get().then(doc => {
-					return doc.data().game;
+
+				let voted = await fire.get().then(doc => {
+					return doc.data().game.votedPlayers;
 				});
-				let maxVotes = data.votedPlayers.reduce((max, player) => (max.count > player.count ? max : player));
+
+				let maxVotes = voted.reduce((max, player) => (max.count > player.count ? max : player));
+
 				fire.update({
 					"game.typedPlayer": [maxVotes]
 				});
@@ -253,23 +226,26 @@
 			async startGame() {
 				try {
 					this.oldGameObject = await this.deepCopy(this.game);
+					localStorage.setItem("oldGameObject", JSON.stringify(this.oldGameObject));
 
 					this.voted = false;
-					const lawirant = Math.floor(Math.random() * this.game.players.length);
-					const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
 
-					this.game.players[lawirant].card = true;
+					if (this.game.players) {
+						const lawirant = Math.floor(Math.random() * this.game.players.length);
+						const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
+						this.game.players[lawirant].card = true;
 
-					const fire = await firebase
-						.firestore()
-						.collection("gametable")
-						.doc(this.$route.params.tableId);
+						const fire = await firebase
+							.firestore()
+							.collection("gametable")
+							.doc(this.$route.params.tableId);
 
-					fire.update({
-						"game.players": this.game.players,
-						"game.started": true,
-						"game.nextRollFor": personToRoll.id
-					});
+						fire.update({
+							"game.players": this.game.players,
+							"game.started": true,
+							"game.nextRollFor": personToRoll.id
+						});
+					}
 				} catch (e) {
 					console.error(e);
 				}
