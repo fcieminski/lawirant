@@ -22,11 +22,11 @@
 				</div>
 				<div v-if="players">
 					<div
-						@click="startVote ? voteForPlayer(player) : null"
+						@click="startVote && !voted ? voteForPlayer(player) : null"
 						v-for="player in players"
 						:key="player.id"
 						class="players__player"
-						:class="[voted && voted.id === player.id ? 'players__vote' : '', 'cp']"
+						:class="[voted && voted.id === player.id && startVote ? 'players__vote' : '', 'cp']"
 					>
 						<i class="material-icons-two-tone">face</i>
 						<span>{{ player.name }}</span>
@@ -66,7 +66,12 @@
 			"$route.params": function() {
 				const id = this.$route.params.id || this.$route.params.playerId;
 				this.getPlayerData(id);
-			}
+            },
+            startVote(val){
+                if(!val){
+                    this.voted = null
+                }
+            }
 		},
 
 		created() {
@@ -132,8 +137,10 @@
 				}
 			},
 			voteForPlayer(player) {
-				this.voted = { ...player, voted: true };
-				this.$eventBus.$emit("votedPlayer", player);
+				if (!this.voted) {
+					this.voted = { ...player };
+					this.$eventBus.$emit("votedPlayer", player);
+				}
 			}
 		},
 		destroyed() {
@@ -185,9 +192,9 @@
 				border: 3px solid yellow;
 			}
 		}
-    }
-    .vote__indicator{
-        transform: rotate(180deg);
-        margin-left: auto;
-    }
+	}
+	.vote__indicator {
+		transform: rotate(180deg);
+		margin-left: auto;
+	}
 </style>

@@ -1,14 +1,17 @@
 <template>
 	<div class="table" v-if="game.players">
 		<div class="table__header">
-			<div class="dice__container" @click="game.rolled ? null : rollDice()">
+			<div
+				class="dice__container"
+				@click="!game.rolled && game.nextRollFor === currentPlayer.id ? rollDice() : null"
+			>
 				<div class="dice__box">
 					<div class="dice dice--k6">{{ game.k6 }}</div>
 					<div class="dice dice--k8">
 						<p>{{ game.k8 }}</p>
 					</div>
 					<div
-						:class="{ 'show--arrow': game.nextRollFor === currentPlayer.id }"
+						:class="{ 'show--arrow': !game.rolled && game.nextRollFor === currentPlayer.id }"
 						class="dice__turn animate__turn"
 					>
 						<i class="material-icons-two-tone">forward</i>
@@ -18,7 +21,7 @@
 			<div
 				class="btn btn--green"
 				@click="game.rolled ? endRound() : null"
-				:style="game.rolled ? 'visibility: visible;' : 'visibility: hidden;'"
+				:style="game.rolled && admin ? 'visibility: visible;' : 'visibility: hidden;'"
 			>
 				Zakończ rundę
 			</div>
@@ -43,7 +46,7 @@
 		<div v-if="isTypedRight" class="end-round__pop-up">
 			<div class="pop-up__container">
 				<div>{{ isTypedRight }}</div>
-				<div @click="startNextRound" class="btn">Następna runda</div>
+				<div v-if="admin" @click="startNextRound" class="btn">Następna runda</div>
 			</div>
 		</div>
 	</div>
@@ -56,11 +59,8 @@
 		name: "Table",
 		data() {
 			return {
-				oldPlayers: [],
 				game: {},
 				oldGameObject: null,
-				voted: false,
-				oldVoted: [],
 				publicPath: process.env.BASE_URL,
 				tableName: ""
 			};
@@ -81,7 +81,7 @@
 								player => player.id !== this.$route.params.playerId
 							);
 
-							const isAdmin = this.game.players.some(player => this.$route.params.playerId === player.id);
+							const isAdmin = this.game.admin === this.$route.params.playerId;
 
 							const endVote = this.game.players.every(player =>
 								doc.data().game.alreadyVoted.includes(player.id)
@@ -93,7 +93,7 @@
 
 							this.$eventBus.$emit("players", playersWithoutCurrent);
 							this.$eventBus.$emit("prepareToPlay", isAdmin);
-							this.$eventBus.$emit("startVote", doc.data().game.showPlayersToVote);
+                            this.$eventBus.$emit("startVote", this.game.showPlayersToVote);
 						},
 						e => {
 							console.warn(e);
@@ -127,7 +127,7 @@
 				let typed = this.game.typedPlayer && this.game.typedPlayer[0];
 				if (typed) {
 					let player = this.game.players.find(player => player.id === typed.id);
-					return player.card ? `Dobrze! lawirantem jest: ${player.player}` : `Buuu... lawirant jest bezpieczny!`;
+					return player.card ? `Dobrze! lawirantem jest: ${player.name}` : `Buuu... lawirant jest bezpieczny!`;
 				}
 				return false;
 			}
@@ -149,14 +149,11 @@
 					.then(doc => {
 						const { votedPlayers } = doc.data().game;
 						let index = votedPlayers.findIndex(currentPlayer => currentPlayer.id === player.id);
-						if (!this.voted) {
-							votedPlayers[index].count++;
-							fire.update({
-								"game.votedPlayers": votedPlayers,
-								"game.alreadyVoted": firebase.firestore.FieldValue.arrayUnion(this.currentPlayer.id)
-							});
-						}
-						this.voted = true;
+						votedPlayers[index].count++;
+						fire.update({
+							"game.votedPlayers": votedPlayers,
+							"game.alreadyVoted": firebase.firestore.FieldValue.arrayUnion(this.currentPlayer.id)
+						});
 					})
 					.catch(e => {
 						console.warn(e);
@@ -227,36 +224,39 @@
 				});
 
 				let maxVotes = voted.reduce((max, player) => (max.count > player.count ? max : player));
+				console.log(maxVotes);
 
 				fire.update({
 					"game.typedPlayer": [maxVotes]
 				});
 			},
 			async startGame() {
-				try {
-					this.oldGameObject = await this.deepCopy(this.game);
-					localStorage.setItem("oldGameObject", JSON.stringify(this.oldGameObject));
+				if (!this.game.started) {
+					try {
+						this.oldGameObject = await this.deepCopy(this.game);
+						localStorage.setItem("oldGameObject", JSON.stringify(this.oldGameObject));
 
-					this.voted = false;
+						if (this.game.players) {
+							const lawirant = Math.floor(Math.random() * this.game.players.length);
+							const personToRoll = this.game.players[
+								Math.floor(Math.random() * (this.game.players.length - 1))
+							];
+							this.game.players[lawirant].card = true;
 
-					if (this.game.players) {
-						const lawirant = Math.floor(Math.random() * this.game.players.length);
-						const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
-						this.game.players[lawirant].card = true;
+							const fire = await firebase
+								.firestore()
+								.collection("gametable")
+								.doc(this.$route.params.tableId);
 
-						const fire = await firebase
-							.firestore()
-							.collection("gametable")
-							.doc(this.$route.params.tableId);
-
-						fire.update({
-							"game.players": this.game.players,
-							"game.started": true,
-							"game.nextRollFor": personToRoll.id
-						});
+							fire.update({
+								"game.players": this.game.players,
+								"game.started": true,
+								"game.nextRollFor": personToRoll.id
+							});
+						}
+					} catch (e) {
+						console.error(e);
 					}
-				} catch (e) {
-					console.error(e);
 				}
 			},
 			async startNextRound() {
@@ -265,8 +265,6 @@
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
 				try {
-					this.voted = false;
-
 					this.game.players.forEach(player => {
 						player.card = false;
 					});
