@@ -40,6 +40,12 @@
 				</div>
 			</div>
 		</div>
+		<div v-if="isTypedRight" class="end-round__pop-up">
+			<div class="pop-up__container">
+				<div>{{ isTypedRight }}</div>
+				<div @click="startNextRound" class="btn">Następna runda</div>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -81,7 +87,9 @@
 								doc.data().game.alreadyVoted.includes(player.id)
 							);
 
-							console.log(endVote);
+							if (endVote) {
+								this.endVote();
+							}
 
 							this.$eventBus.$emit("players", playersWithoutCurrent);
 							this.$eventBus.$emit("prepareToPlay", isAdmin);
@@ -121,6 +129,7 @@
 					let player = this.game.players.find(player => player.id === typed.id);
 					return player.card ? `Dobrze! lawirantem jest: ${player.player}` : `Buuu... lawirant jest bezpieczny!`;
 				}
+				return false;
 			}
 		},
 		methods: {
@@ -256,15 +265,29 @@
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
 				try {
+					this.voted = false;
+
+					this.game.players.forEach(player => {
+						player.card = false;
+					});
+
+					const lawirant = Math.floor(Math.random() * this.game.players.length);
+					const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
+					this.game.players[lawirant].card = true;
+
 					fire.update({
 						game: {
-							...this.oldGameObject
+							...this.oldGameObject,
+							points: [],
+							usedCards: this.game.usedCards,
+							players: this.game.players,
+							started: true,
+							nextRollFor: personToRoll.id
 						}
 					});
 				} catch (e) {
 					console.error(e);
 				}
-				this.startGame();
 			},
 			async resetGame() {
 				if (this.game.started) {
@@ -431,6 +454,35 @@
 			justify-content: center;
 			align-items: center;
 			margin: 10px;
+		}
+	}
+
+	.end-round__pop-up {
+		position: absolute;
+		width: 100vw;
+		height: 100vh;
+		z-index: 999;
+		left: 0;
+		top: 0;
+		overflow: hidden;
+		background-color: #538e4780;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		.pop-up__container {
+			width: 700px;
+			height: 300px;
+			box-shadow: 10px 10px 27px 0px rgba(0, 0, 0, 0.28);
+			font-size: 2rem;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			color: white;
+			background: $backgroundSecond;
+			.btn {
+				margin-top: 30px;
+			}
 		}
 	}
 
