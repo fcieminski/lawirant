@@ -94,8 +94,9 @@
 		name: "Table",
 		data() {
 			return {
-				oldPlayers: {},
+				oldPlayers: [],
 				game: {},
+				oldGameObject: {},
 				voted: false,
 				oldVoted: [],
 				publicPath: process.env.BASE_URL,
@@ -136,14 +137,13 @@
 		},
 		computed: {
 			showOtherPlayers() {
-				return this.game.players.filter(player => player.id !== this.$route.params.playerId);
+				return this.game.players && this.game.players.filter(player => player.id !== this.$route.params.playerId);
 			},
 			currentPlayer() {
-                console.log(this.game.players)
-				return this.game.players.find(player => player.id === this.$route.params.playerId);
+				return this.game.players && this.game.players.find(player => player.id === this.$route.params.playerId);
 			},
 			admin() {
-				return this.game.admin === this.$route.params.playerId;
+				return this.game.players && this.game.admin === this.$route.params.playerId;
 			},
 			isTypedRight() {
 				let typed = this.game.typedPlayer && this.game.typedPlayer[0];
@@ -154,18 +154,12 @@
 			}
 		},
 		methods: {
-			async endGame() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				let data = await fire.get().then(doc => {
-					return doc.data().game;
-				});
-				let maxVotes = data.votedPlayers.reduce((max, player) => (max.count > player.count ? max : player));
-				fire.update({
-					"game.typedPlayer": [maxVotes]
-				});
+			deepCopy(toClone) {
+				if ("length" in toClone) {
+					return Array.from(toClone, element => Object.assign({}, element));
+				} else {
+					return JSON.parse(JSON.stringify(toClone));
+				}
 			},
 			voteForPlayer(player) {
 				let fire = firebase
@@ -188,26 +182,6 @@
 					.catch(e => {
 						console.warn(e);
 					});
-			},
-			async resetGame() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers)); // object!!
-				fire.update({
-					"game.started": false,
-					"game.k6": 0,
-					"game.k8": 0,
-					"game.rolled": false,
-					"game.showPlayersToVote": false,
-					"game.votedPlayers": this.oldVoted,
-					"game.points": [],
-					"game.typedPlayer": [],
-					"game.nextRollFor": null,
-					"game.usedCards": [],
-					"game.currentCard": 0
-				});
 			},
 			nextRoll(currentId) {
 				const currentIndex = this.game.players.findIndex(player => player.id === currentId);
@@ -249,17 +223,22 @@
 					});
 			},
 			async startGame() {
-				this.voted = false;
-				this.oldPlayers = JSON.parse(JSON.stringify(this.game.players));
-				this.oldVoted = JSON.parse(JSON.stringify(this.game.votedPlayers));
-				const lawirant = Math.floor(Math.random() * this.game.players.length);
-				const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
 				try {
+					this.oldGameObject = await this.deepCopy(this.game);
+
+					// this.oldPlayers = await this.deepCopy(this.game.players);
+					// this.oldVoted = await this.deepCopy(this.game.votedPlayers);
+					this.voted = false;
+					const lawirant = Math.floor(Math.random() * this.game.players.length);
+					const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
+
 					this.game.players[lawirant].card = true;
+
+					const fire = await firebase
+						.firestore()
+						.collection("gametable")
+						.doc(this.$route.params.tableId);
+
 					fire.update({
 						"game.players": this.game.players,
 						"game.started": true,
@@ -269,24 +248,51 @@
 					console.error(e);
 				}
 			},
-			async startNewGame() {
-				let fire = await firebase
-					.firestore()
-					.collection("gametable")
-					.doc(this.$route.params.tableId);
-				this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
-				fire.update({
-					"game.started": false,
-					"game.k6": 0,
-					"game.k8": 0,
-					"game.rolled": false,
-					"game.showPlayersToVote": false,
-					"game.votedPlayers": this.oldVoted,
-					"game.points": [],
-					"game.typedPlayer": []
-				});
-				this.startGame();
+			async resetGame() {
+				if (this.game.started) {
+					let fire = await firebase
+						.firestore()
+						.collection("gametable")
+                        .doc(this.$route.params.tableId);
+                        try{
+
+                            this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
+					fire.update({
+                        "game.started": false,
+						"game.k6": 0,
+						"game.k8": 0,
+						"game.rolled": false,
+						"game.showPlayersToVote": false,
+						"game.votedPlayers": this.oldVoted,
+						"game.points": [],
+						"game.typedPlayer": [],
+						"game.nextRollFor": null,
+						"game.usedCards": [],
+						"game.currentCard": 0
+					});
+                        } catch(e) {
+                            console.warn(e)
+                        }
+				}
 			},
+			// async startNewGame() {
+			// 	let fire = await firebase
+			// 		.firestore()
+			// 		.collection("gametable")
+			// 		.doc(this.$route.params.tableId);
+			// 	this.game.players = JSON.parse(JSON.stringify(this.oldPlayers));
+			// 	fire.update({
+			// 		"game.started": false,
+			// 		"game.k6": 0,
+			// 		"game.k8": 0,
+			// 		"game.rolled": false,
+			// 		"game.showPlayersToVote": false,
+			// 		"game.votedPlayers": this.oldVoted,
+			// 		"game.points": [],
+			// 		"game.typedPlayer": []
+			// 	});
+			// 	this.startGame();
+			// },
 			async startNextRound() {
 				let fire = await firebase
 					.firestore()
@@ -303,25 +309,29 @@
 					"game.typedPlayer": []
 				});
 				this.startGame();
+			},
+			async endGame() {
+				let fire = await firebase
+					.firestore()
+					.collection("gametable")
+					.doc(this.$route.params.tableId);
+				let data = await fire.get().then(doc => {
+					return doc.data().game;
+				});
+				let maxVotes = data.votedPlayers.reduce((max, player) => (max.count > player.count ? max : player));
+				fire.update({
+					"game.typedPlayer": [maxVotes]
+				});
 			}
 		}
-		// beforeDestroy() {
-		// 	if (this.admin) {
-		// 		firebase
-		// 			.firestore()
-		// 			.collection("gametable")
-		// 			.doc(this.$route.params.tableId)
-		// 			.delete();
-		// 	}
-		// }
 	};
 </script>
 
 <style lang='scss' scoped>
-	::selection {
-		color: none;
-		background: none;
-	}
+	// ::selection {
+	// 	color: none;
+	// 	background: none;
+	// }
 
 	.table {
 		display: flex;
