@@ -132,7 +132,8 @@
 								cards: arr,
                                 usedCards: [],
                                 alreadyVoted: [],
-								currentCard: 0
+                                currentCard: 0,
+                                endGame: false,
 							}
 						})
 						.then(() => {

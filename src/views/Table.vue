@@ -44,9 +44,13 @@
 			</div>
 		</div>
 		<div v-if="isTypedRight" class="end-round__pop-up">
-			<div class="pop-up__container">
+			<div v-if="isTypedRight" class="pop-up__container">
 				<div>{{ isTypedRight }}</div>
 				<div v-if="admin" @click="startNextRound" class="btn">Następna runda</div>
+			</div>
+			<div v-if="game.endGame" class="pop-up__container">
+				<div>Koniec kart! Zwycięzcą jest .... Rozpocznij nową grę!</div>
+				<div v-if="admin" @click="resetGame" class="btn">Nowa Gra</div>
 			</div>
 		</div>
 	</div>
@@ -62,13 +66,14 @@
 				game: {},
 				oldGameObject: null,
 				publicPath: process.env.BASE_URL,
-				tableName: ""
+				tableName: "",
+				subscribe: null
 			};
 		},
 		components: {},
 		created() {
 			if (this.$route.params.tableId) {
-				firebase
+				this.subscribe = firebase
 					.firestore()
 					.collection("gametable")
 					.doc(this.$route.params.tableId)
@@ -83,17 +88,9 @@
 
 							const isAdmin = this.game.admin === this.$route.params.playerId;
 
-							const endVote = this.game.players.every(player =>
-								doc.data().game.alreadyVoted.includes(player.id)
-							);
-
-							if (endVote) {
-								this.endVote();
-							}
-
 							this.$eventBus.$emit("players", playersWithoutCurrent);
 							this.$eventBus.$emit("prepareToPlay", isAdmin);
-                            this.$eventBus.$emit("startVote", this.game.showPlayersToVote);
+							this.$eventBus.$emit("startVote", this.game.showPlayersToVote);
 						},
 						e => {
 							console.warn(e);
@@ -113,6 +110,7 @@
 				this.voteForPlayer(payload);
 			});
 		},
+
 		computed: {
 			showOtherPlayers() {
 				return this.game.players && this.game.players.filter(player => player.id !== this.$route.params.playerId);
@@ -123,13 +121,24 @@
 			admin() {
 				return this.game.players && this.game.admin === this.$route.params.playerId;
 			},
+			voteEnded() {
+				return this.game.players && this.game.players.every(player => this.game.alreadyVoted.includes(player.id));
+			},
 			isTypedRight() {
 				let typed = this.game.typedPlayer && this.game.typedPlayer[0];
-				if (typed) {
+				if (typed && this.voteEnded) {
 					let player = this.game.players.find(player => player.id === typed.id);
 					return player.card ? `Dobrze! lawirantem jest: ${player.name}` : `Buuu... lawirant jest bezpieczny!`;
 				}
 				return false;
+			}
+		},
+		watch: {
+			voteEnded(val) {
+                console.log(val)
+				if (val) {
+					this.endVote();
+				}
 			}
 		},
 		methods: {
@@ -224,11 +233,10 @@
 				});
 
 				let maxVotes = voted.reduce((max, player) => (max.count > player.count ? max : player));
-				console.log(maxVotes);
 
 				fire.update({
-					"game.typedPlayer": [maxVotes]
-				});
+                    "game.typedPlayer": [maxVotes],
+                    				});
 			},
 			async startGame() {
 				if (!this.game.started) {
@@ -265,24 +273,32 @@
 					.collection("gametable")
 					.doc(this.$route.params.tableId);
 				try {
-					this.game.players.forEach(player => {
-						player.card = false;
-					});
+					if (this.game.usedCards.length !== this.game.cards.length) {
+						this.game.players.forEach(player => {
+							player.card = false;
+						});
 
-					const lawirant = Math.floor(Math.random() * this.game.players.length);
-					const personToRoll = this.game.players[Math.floor(Math.random() * (this.game.players.length - 1))];
-					this.game.players[lawirant].card = true;
+						const lawirant = Math.floor(Math.random() * this.game.players.length);
+						const nextRoll = this.nextRoll(this.game.nextRollFor);
+						this.game.players[lawirant].card = true;
 
-					fire.update({
-						game: {
-							...this.oldGameObject,
-							points: [],
-							usedCards: this.game.usedCards,
-							players: this.game.players,
-							started: true,
-							nextRollFor: personToRoll.id
-						}
-					});
+						fire.update({
+							game: {
+								...this.oldGameObject,
+								points: [],
+								usedCards: this.game.usedCards,
+								players: this.game.players,
+								started: true,
+								nextRollFor: nextRoll,
+								typedPlayer: [],
+								alreadyVoted: []
+							}
+						});
+					} else {
+						fire.update({
+							"game.endGame": true
+						});
+					}
 				} catch (e) {
 					console.error(e);
 				}
@@ -302,6 +318,9 @@
 					}
 				}
 			}
+		},
+		destroyed() {
+			this.subscribe();
 		}
 	};
 </script>
