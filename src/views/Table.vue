@@ -73,29 +73,30 @@
 		components: {},
 		created() {
 			if (this.$route.params.tableId) {
-				this.subscribe = firebase
+				const fire = firebase
 					.firestore()
 					.collection("gametable")
-					.doc(this.$route.params.tableId)
-					.onSnapshot(
-						doc => {
-							this.game = doc.data().game;
-							this.tableName = doc.data().tableName;
+					.doc(this.$route.params.tableId);
+				this.subscribe = fire.onSnapshot(
+					doc => {
+						this.game = doc.data().game;
+					},
+					e => {
+						console.warn(e);
+					}
+				);
+				fire.get().then(doc => {
+					this.tableName = doc.data().tableName;
 
-							const playersWithoutCurrent = this.game.players.filter(
-								player => player.id !== this.$route.params.playerId
-							);
-
-							const isAdmin = this.game.admin === this.$route.params.playerId;
-
-							this.$eventBus.$emit("players", playersWithoutCurrent);
-							this.$eventBus.$emit("prepareToPlay", isAdmin);
-							this.$eventBus.$emit("startVote", this.game.showPlayersToVote);
-						},
-						e => {
-							console.warn(e);
-						}
+					const playersWithoutCurrent = this.game.players.filter(
+						player => player.id !== this.$route.params.playerId
 					);
+
+					const isAdmin = this.game.admin === this.$route.params.playerId;
+
+					this.$eventBus.$emit("players", playersWithoutCurrent);
+					this.$eventBus.$emit("prepareToPlay", isAdmin);
+				});
 			}
 
 			this.oldGameObject = JSON.parse(localStorage.getItem("oldGameObject"));
@@ -135,10 +136,12 @@
 		},
 		watch: {
 			voteEnded(val) {
-                console.log(val)
 				if (val) {
 					this.endVote();
 				}
+			},
+			"game.showPlayersToVote": function(val) {
+				this.$eventBus.$emit("startVote", this.game.showPlayersToVote);
 			}
 		},
 		methods: {
@@ -235,8 +238,8 @@
 				let maxVotes = voted.reduce((max, player) => (max.count > player.count ? max : player));
 
 				fire.update({
-                    "game.typedPlayer": [maxVotes],
-                    				});
+					"game.typedPlayer": [maxVotes]
+				});
 			},
 			async startGame() {
 				if (!this.game.started) {
