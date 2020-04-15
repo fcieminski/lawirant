@@ -63,15 +63,15 @@
 		components: {},
 
 		watch: {
-			"$route.params": function() {
+			"$route.params.id": function() {
 				const id = this.$route.params.id || this.$route.params.playerId;
 				this.getPlayerData(id);
-            },
-            startVote(val){
-                if(!val){
-                    this.voted = null
-                }
-            }
+			},
+			startVote(val) {
+				if (!val) {
+					this.voted = null;
+				}
+			}
 		},
 
 		created() {
@@ -91,21 +91,23 @@
 		computed: {},
 		methods: {
 			getPlayerData(id) {
-				firebase
-					.firestore()
-					.collection("players/")
-					.doc(id)
-					.get()
-					.then(doc => {
-						if (doc.exists) {
-							this.newPlayer = doc.data();
-						} else {
-							this.$router.push("/");
-						}
-					})
-					.catch(e => {
-						console.warn(e);
-					});
+				if (id) {
+					firebase
+						.firestore()
+						.collection("players/")
+						.doc(id)
+						.get()
+						.then(doc => {
+							if (doc.exists) {
+								this.newPlayer = doc.data();
+							} else {
+								this.$router.push("/");
+							}
+						})
+						.catch(e => {
+							console.warn(e);
+						});
+				}
 			},
 			addNewPlayer() {
 				if (this.name) {

@@ -80,6 +80,11 @@
 				this.subscribe = fire.onSnapshot(
 					doc => {
 						this.game = doc.data().game;
+						const playersWithoutCurrent = this.game.players.filter(
+							player => player.id !== this.$route.params.playerId
+						);
+
+						this.$eventBus.$emit("players", playersWithoutCurrent);
 					},
 					e => {
 						console.warn(e);
@@ -87,14 +92,8 @@
 				);
 				fire.get().then(doc => {
 					this.tableName = doc.data().tableName;
-
-					const playersWithoutCurrent = this.game.players.filter(
-						player => player.id !== this.$route.params.playerId
-					);
-
 					const isAdmin = this.game.admin === this.$route.params.playerId;
 
-					this.$eventBus.$emit("players", playersWithoutCurrent);
 					this.$eventBus.$emit("prepareToPlay", isAdmin);
 				});
 			}
@@ -320,7 +319,32 @@
 						console.warn(e);
 					}
 				}
+			},
+			async removePlayer(id) {
+				if (id) {
+					let fire = await firebase
+						.firestore()
+						.collection("gametable")
+						.doc(this.$route.params.tableId);
+					try {
+						fire.get().then(doc => {
+							const players = doc.data().game.players;
+							const filteredPlayers = players.filter(player => player.id !== id);
+							console.log(filteredPlayers);
+							fire.update({
+								"game.players": filteredPlayers
+							});
+							this.$eventBus.$emit("players", {});
+						});
+					} catch (e) {
+						console.warn(e);
+					}
+				}
 			}
+		},
+		beforeRouteLeave(to, from, next) {
+			this.removePlayer(this.$route.params.playerId);
+			next();
 		},
 		destroyed() {
 			this.subscribe();
