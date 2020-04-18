@@ -30,16 +30,16 @@
 		<div class="table__top">
 			<div v-if="game.started">
 				<div class="card" v-if="!currentPlayer.card">
-					KARTA
+					<img src="@/assets/card1.jpg" alt="" />
 				</div>
 				<div v-else class="logo--big">LAWIRANT</div>
 			</div>
 		</div>
 		<div class="table__spacer"></div>
 		<div class="table__bottom">
-			<div v-if="game.started">
-				<div class="card">
-					PLANSZA
+			<div v-if="game.started && game.rolled">
+				<div>
+					<card :currentCard="game.currentCard" />
 				</div>
 			</div>
 		</div>
@@ -58,6 +58,7 @@
 
 <script>
 	import firebase from "firebase";
+	import Card from "@/components/Card.vue";
 
 	export default {
 		name: "Table",
@@ -70,7 +71,9 @@
 				subscribe: null
 			};
 		},
-		components: {},
+		components: {
+			Card
+		},
 		created() {
 			if (this.$route.params.tableId) {
 				const fire = firebase
@@ -433,8 +436,11 @@
 			align-items: center;
 			.card {
 				width: 500px;
-				border: 2px solid black;
-				height: 300px;
+				img {
+					width: 100%;
+					height: auto;
+					object-fit: cover;
+				}
 			}
 		}
 		.table__spacer {
@@ -446,11 +452,6 @@
 			display: flex;
 			justify-content: center;
 			align-items: center;
-			.card {
-				width: 500px;
-				border: 2px solid black;
-				height: 300px;
-			}
 		}
 	}
 
