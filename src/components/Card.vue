@@ -82,7 +82,6 @@
 			height: 90%;
 			background-color: white;
 			border-collapse: collapse;
-			// border: 3px solid black;
 			thead {
 				th {
 					border: 2px solid $mainBlue;
